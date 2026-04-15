@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import atexit
 import logging
 import os
 from argparse import ArgumentParser
@@ -101,32 +102,44 @@ async def main() -> None:
     logging.info(f'Basis states: {ensemble.basis_states}')
     logging.info(f'Target states: {ensemble.target_states}')
 
-    async with await Manager.from_exchange_factory(
-        factory=create_exchange_factory(args.exchange),
-        executors={
-            'gpu': ParslPoolExecutor(parsl_config),
-            'cpu': ThreadPoolExecutor(max_workers=1),
-        },
-        default_executor='gpu',
-    ) as manager:
-        await run_westpa_workflow(
-            manager=manager,
-            sim_agent_type=OpenMMSimAgent,
-            westpa_agent_type=HuberKimWestpaAgent,
-            max_iterations=cfg.num_iterations,
-            ensemble=ensemble,
-            checkpointer=checkpointer,
-            sim_agent_kwargs={
-                'sim_config': cfg.simulation_config,
-                'output_dir': cfg.output_dir / 'simulation',
+    # Create the Parsl executor outside the Manager context so we
+    # can guarantee cleanup even if the process is interrupted.
+    gpu_executor = ParslPoolExecutor(parsl_config)
+
+    # On SIGTERM, atexit shuts down Parsl workers but the main
+    # process hangs during interpreter cleanup. Follow up with
+    # kill -9 to force-kill the main process (see README).
+    atexit.register(gpu_executor.shutdown, wait=False)
+
+    try:
+        async with await Manager.from_exchange_factory(
+            factory=create_exchange_factory(args.exchange),
+            executors={
+                'gpu': gpu_executor,
+                'cpu': ThreadPoolExecutor(max_workers=1),
             },
-            westpa_agent_kwargs={
-                'inference_config': cfg.inference_config,
-            },
-            sim_executor='gpu',
-            westpa_executor='cpu',
-            logfile=cfg.output_dir / 'runtime.log',
-        )
+            default_executor='gpu',
+        ) as manager:
+            await run_westpa_workflow(
+                manager=manager,
+                sim_agent_type=OpenMMSimAgent,
+                westpa_agent_type=HuberKimWestpaAgent,
+                max_iterations=cfg.num_iterations,
+                ensemble=ensemble,
+                checkpointer=checkpointer,
+                sim_agent_kwargs={
+                    'sim_config': cfg.simulation_config,
+                    'output_dir': cfg.output_dir / 'simulation',
+                },
+                westpa_agent_kwargs={
+                    'inference_config': cfg.inference_config,
+                },
+                sim_executor='gpu',
+                westpa_executor='cpu',
+                logfile=cfg.output_dir / 'runtime.log',
+            )
+    finally:
+        gpu_executor.shutdown(wait=False)
 
 
 if __name__ == '__main__':

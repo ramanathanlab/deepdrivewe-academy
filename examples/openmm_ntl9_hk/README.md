@@ -80,6 +80,15 @@ All settings live in `config.yaml`. Key parameters:
 | `target_states[0].pcoord` | [1.0] | RMSD threshold for the folded state (A) |
 | `compute_config.available_accelerators` | ["1","2","3"] | GPU device IDs for Parsl workers (analogous to `CUDA_VISIBLE_DEVICES=1,2,3`) |
 
+### Stopping a Running Workflow
+
+If running in the foreground, Ctrl+C will stop the workflow. If running in the background (e.g., via `nohup`), stop it in two steps:
+
+```bash
+kill <pid>      # Shuts down Parsl workers gracefully
+kill -9 <pid>   # Then force-kill the main process
+```
+
 ### Extending This Example
 
 **Custom progress coordinate** -- Subclass `SimulationAgent`, override `run_simulation`, and return different values in `metadata.pcoord`. Swap the `ContactMapRMSDReporter` for your own reporter.
