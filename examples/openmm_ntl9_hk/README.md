@@ -82,11 +82,11 @@ All settings live in `config.yaml`. Key parameters:
 
 ### Stopping a Running Workflow
 
-Ctrl+C may not cleanly shut down all Parsl worker processes. To stop the workflow and all its child processes:
+If running in the foreground, Ctrl+C will stop the workflow. If running in the background (e.g., via `nohup`), stop it in two steps:
 
 ```bash
-kill -9 <pid>
-pkill -9 -f "parsl|process_worker_"
+kill <pid>      # Shuts down Parsl workers gracefully
+kill -9 <pid>   # Then force-kill the main process
 ```
 
 ### Extending This Example
