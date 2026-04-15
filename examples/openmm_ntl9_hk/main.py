@@ -110,10 +110,14 @@ async def main() -> None:
     # Safety net: atexit fires on normal exit and unhandled exceptions.
     atexit.register(gpu_executor.shutdown, wait=False)
 
-    # Handle SIGTERM (kill <pid>) via the asyncio event loop so
-    # that cancellation propagates through awaited tasks cleanly.
+    # Handle SIGTERM (kill <pid>) by cancelling all async tasks.
+    # CancelledError propagates through async-with and finally blocks
+    # so Manager.__aexit__ and the Parsl finally both run.
     loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGTERM, loop.stop)
+    loop.add_signal_handler(
+        signal.SIGTERM,
+        lambda: [t.cancel() for t in asyncio.all_tasks(loop)],
+    )
 
     try:
         async with await Manager.from_exchange_factory(
