@@ -60,6 +60,7 @@ from deepdrivewe.api import SimResult
 from deepdrivewe.api import TargetState
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
+from deepdrivewe.utils import wait_for_file
 
 
 class SimulationAgent(Agent, ABC):
@@ -134,6 +135,12 @@ class SimulationAgent(Agent, ABC):
             f'iteration {sim_metadata.iteration_id}',
         )
 
+        # Wait for the restart file to be available before running the
+        # simulation. Handles NFS caching issues where the file may not be
+        # immediately visible
+        await wait_for_file(sim_metadata.parent_restart_file, self.logger)
+
+        # Run the simulation in a thread to avoid blocking the event loop
         result = await self.agent_run_sync(self.run_simulation, sim_metadata)
 
         self.logger.info(f'sim {sim_metadata.simulation_id} complete')
