@@ -1,0 +1,59 @@
+# OpenMM NTL9 Huber-Kim Weighted Ensemble Configuration GPU workstation setup.
+# The input files are relative to the example directory.
+
+# The output directory for the runs
+output_dir: results/
+
+# The number of iterations to run the ensemble for
+num_iterations: 100
+
+# Basis states: directory containing starting structures in subdirectories
+# e.g., basis_states/00/, basis_states/01/, ...
+basis_states:
+  basis_state_dir: inputs/
+  # The file extension for the basis state files
+  basis_state_ext: .pdb
+  # The number of basis states to use
+  initial_ensemble_members: 4
+
+# Compute initial progress coordinates via RMSD to the reference structure
+basis_state_initializer:
+  # The path to the reference PDB file
+  reference_file: common_files/reference.pdb
+  # MDAnalysis selection string for calculating RMSD (C-alpha atoms)
+  mda_selection: protein and name CA
+
+# Target state: folded structure (RMSD < 1.0 Angstrom)
+target_states:
+  - label: folded
+    pcoord: [1.0]
+
+# The configuration for the simulation
+simulation_config:
+  # The OpenMM configuration
+  openmm_config:
+    # The number of nanoseconds to run each simulation for (10 ps)
+    simulation_length_ns: 0.01
+    # How often to report frames in picoseconds
+    report_interval_ps: 2.0
+    # The time step to use in picoseconds
+    dt_ps: 0.002
+    # The temperature to run the simulation at
+    temperature_kelvin: 300.0
+    # The solvent type
+    solvent_type: implicit
+
+  # The path to the reference PDB file
+  reference_file: common_files/reference.pdb
+
+# Huber-Kim resampling parameters
+inference_config:
+  # The number of simulations to maintain per bin
+  sims_per_bin: 4
+
+# GPU workstation compute resources (Parsl)
+compute_config:
+  name: workstation
+  # Number of GPUs available
+  # The numbers below are analogous to setting CUDA_VISIBLE_DEVICES=1,2,3
+  available_accelerators: ["1", "2", "3"]
