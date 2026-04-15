@@ -27,14 +27,13 @@ from academy.exchange.local import LocalExchangeFactory
 from academy.logging import init_logging
 from academy.manager import Manager
 from parsl.concurrent import ParslPoolExecutor
+from workflow import ExperimentSettings
+from workflow import HuberKimWestpaAgent
+from workflow import OpenMMSimAgent
 
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.workflows.westpa import run_westpa_workflow
-
-from .workflow import ExperimentSettings
-from .workflow import HuberKimWestpaAgent
-from .workflow import OpenMMSimAgent
 
 EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
 
