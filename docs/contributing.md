@@ -9,7 +9,7 @@ Create a virtual environment and install all development and
 documentation dependencies:
 
 ```bash
-git clone git@github.com:braceal/deepdrivewe-academy.git
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 python -m venv venv
 source venv/bin/activate

@@ -36,9 +36,9 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/braceal/deepdrivewe-academy"
-documentation = "https://github.com/braceal/deepdrivewe-academy"
-repository = "https://github.com/braceal/deepdrivewe-academy"
+homepage = "https://github.com/ramanathanlab/deepdrivewe-academy"
+documentation = "https://github.com/ramanathanlab/deepdrivewe-academy"
+repository = "https://github.com/ramanathanlab/deepdrivewe-academy"
 
 [project.optional-dependencies]
 dev = [

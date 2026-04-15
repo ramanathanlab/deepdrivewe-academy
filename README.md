@@ -7,14 +7,14 @@ Implementation of [DeepDriveWE](https://pubs.acs.org/doi/full/10.1021/acs.jctc.4
 
 To install the package, run the following command:
 ```bash
-git clone git@github.com:braceal/deepdrivewe-academy.git
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 pip install -e .
 ```
 
 Full installation including dependencies:
 ```bash
-git clone git@github.com:braceal/deepdrivewe-academy.git
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 conda create -n deepdrivewe python=3.10 -y
 conda install omnia::ambertools -y

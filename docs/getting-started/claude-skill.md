@@ -53,7 +53,7 @@ Claude Code loads skills from two locations:
     ```bash
     mkdir -p ~/.claude/skills/deepdrivewe-example
     curl -fsSL \
-      https://raw.githubusercontent.com/braceal/deepdrivewe-academy/main/.claude/skills/deepdrivewe-example/SKILL.md \
+      https://raw.githubusercontent.com/ramanathanlab/deepdrivewe-academy/main/.claude/skills/deepdrivewe-example/SKILL.md \
       -o ~/.claude/skills/deepdrivewe-example/SKILL.md
     ```
 
@@ -70,7 +70,7 @@ Claude Code loads skills from two locations:
     ```bash
     mkdir -p ~/.claude/skills/deepdrivewe-example
     wget -O ~/.claude/skills/deepdrivewe-example/SKILL.md \
-      https://raw.githubusercontent.com/braceal/deepdrivewe-academy/main/.claude/skills/deepdrivewe-example/SKILL.md
+      https://raw.githubusercontent.com/ramanathanlab/deepdrivewe-academy/main/.claude/skills/deepdrivewe-example/SKILL.md
     ```
 
 Once installed, Claude Code will see `deepdrivewe-example` in its
@@ -109,7 +109,7 @@ The skill is ~200 lines of structured guidance. A condensed outline:
 6. **Gotchas** -- project conventions and easy-to-miss pitfalls.
 
 View the full source at
-[.claude/skills/deepdrivewe-example/SKILL.md](https://github.com/braceal/deepdrivewe-academy/blob/main/.claude/skills/deepdrivewe-example/SKILL.md).
+[.claude/skills/deepdrivewe-example/SKILL.md](https://github.com/ramanathanlab/deepdrivewe-academy/blob/main/.claude/skills/deepdrivewe-example/SKILL.md).
 
 ## Updating the Skill
 
