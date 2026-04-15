@@ -22,7 +22,6 @@ import asyncio
 import atexit
 import logging
 import os
-import signal
 from argparse import ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -109,15 +108,6 @@ async def main() -> None:
 
     # Safety net: atexit fires on normal exit and unhandled exceptions.
     atexit.register(gpu_executor.shutdown, wait=False)
-
-    # Handle SIGTERM (kill <pid>) by cancelling all async tasks.
-    # CancelledError propagates through async-with and finally blocks
-    # so Manager.__aexit__ and the Parsl finally both run.
-    loop = asyncio.get_running_loop()
-    loop.add_signal_handler(
-        signal.SIGTERM,
-        lambda: [t.cancel() for t in asyncio.all_tasks(loop)],
-    )
 
     try:
         async with await Manager.from_exchange_factory(
