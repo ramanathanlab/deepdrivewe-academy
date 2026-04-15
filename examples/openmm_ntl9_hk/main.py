@@ -20,7 +20,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 from argparse import ArgumentParser
+from pathlib import Path
 
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
@@ -59,8 +61,17 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _export_pythonpath() -> None:
+    """Add this directory to PYTHONPATH for Parsl workers."""
+    example_dir = str(Path(__file__).resolve().parent)
+    pythonpath = os.environ.get('PYTHONPATH', '')
+    if example_dir not in pythonpath:
+        os.environ['PYTHONPATH'] = example_dir + os.pathsep + pythonpath
+
+
 async def main() -> None:
     """Run the OpenMM WESTPA workflow."""
+    _export_pythonpath()
     args = parse_args()
     cfg = ExperimentSettings.from_yaml(args.config)
     cfg.dump_yaml(cfg.output_dir / 'params.yaml')
