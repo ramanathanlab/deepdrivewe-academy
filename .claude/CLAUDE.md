@@ -82,3 +82,21 @@ Key domain dependencies: `mdtraj`, `MDAnalysis` (trajectory analysis), `parsl` (
 - **PRs target**: `develop`; release PRs go `develop` → `main`
 - **Branch naming**: `feature/<issue>-<slug>`, `bugfix/<issue>-<slug>`, `chore/<issue>-<slug>`
 - A PreToolUse hook redirects `git checkout main` to `develop`
+
+## Releases
+
+Releases are automated by `release-please` via the [Release workflow](../.github/workflows/release.yml). Every merge to `main` either opens or updates a "release PR". Merging that release PR creates the `vX.Y.Z` tag, a GitHub Release, a `CHANGELOG.md` entry, and bumps the version in `pyproject.toml`.
+
+**Commit messages drive the bump** — use [Conventional Commits](https://www.conventionalcommits.org/). While the version is `< 1.0.0` (config uses `bump-minor-pre-major: true`):
+
+| Commit type                                              | Bump                  |
+|----------------------------------------------------------|-----------------------|
+| `feat!:` or `BREAKING CHANGE:` in body                   | minor (capped pre-1.0) |
+| `feat:`                                                  | minor                 |
+| `fix:`                                                   | patch                 |
+| `perf:`                                                  | patch                 |
+| `chore:`, `ci:`, `docs:`, `test:`, `refactor:`, `style:` | no release            |
+
+After `1.0.0`, standard SemVer applies and `feat!:` bumps the major. The highest-severity commit in the batch wins. To force a specific version, add `Release-As: X.Y.Z` to a commit body on `main`.
+
+Version source of truth is `pyproject.toml`; `deepdrivewe/__init__.py` reads it via `importlib.metadata.version()`, so no other version string needs updating when cutting a release.
