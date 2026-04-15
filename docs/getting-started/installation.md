@@ -5,7 +5,7 @@
 Clone the repository and install in editable mode:
 
 ```bash
-git clone git@github.com:braceal/deepdrivewe-academy.git
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 pip install -e .
 ```
@@ -16,7 +16,7 @@ For running molecular dynamics simulations with OpenMM and AmberTools,
 use conda to install the simulation backends first:
 
 ```bash
-git clone git@github.com:braceal/deepdrivewe-academy.git
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 
 conda create -n deepdrivewe python=3.11 -y

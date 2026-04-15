@@ -2,9 +2,9 @@ site_name: DeepDriveWE-Academy
 site_description: >-
   Weighted ensemble molecular dynamics using the Academy
   multi-agent framework.
-site_url: https://braceal.github.io/deepdrivewe-academy
-repo_url: https://github.com/braceal/deepdrivewe-academy
-repo_name: braceal/deepdrivewe-academy
+site_url: https://ramanathanlab.github.io/deepdrivewe-academy
+repo_url: https://github.com/ramanathanlab/deepdrivewe-academy
+repo_name: ramanathanlab/deepdrivewe-academy
 
 theme:
   name: material

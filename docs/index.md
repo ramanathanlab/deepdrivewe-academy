@@ -81,4 +81,4 @@ BibTeX:
 ## License
 
 DeepDriveWE-Academy is released under the
-[MIT License](https://github.com/braceal/deepdrivewe-academy/blob/main/LICENSE).
+[MIT License](https://github.com/ramanathanlab/deepdrivewe-academy/blob/main/LICENSE).
