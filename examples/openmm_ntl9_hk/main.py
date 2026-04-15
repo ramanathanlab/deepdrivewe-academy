@@ -107,15 +107,13 @@ async def main() -> None:
     # can guarantee cleanup even if the process is interrupted.
     gpu_executor = ParslPoolExecutor(parsl_config)
 
-    # Safety net: atexit fires on normal exit and unhandled
-    # exceptions; SIGTERM handler covers `kill <pid>`.
+    # Safety net: atexit fires on normal exit and unhandled exceptions.
     atexit.register(gpu_executor.shutdown, wait=False)
 
-    def _handle_sigterm(*_: object) -> None:
-        gpu_executor.shutdown(wait=False)
-        raise SystemExit(1)
-
-    signal.signal(signal.SIGTERM, _handle_sigterm)
+    # Handle SIGTERM (kill <pid>) via the asyncio event loop so
+    # that cancellation propagates through awaited tasks cleanly.
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGTERM, loop.stop)
 
     try:
         async with await Manager.from_exchange_factory(
