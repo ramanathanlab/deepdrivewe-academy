@@ -11,6 +11,7 @@ repos:
       - id: check-docstring-first
       - id: check-json
       - id: check-yaml
+        exclude: ^properdocs\.yml$
       - id: check-merge-conflict
       - id: name-tests-test
   - repo: 'https://github.com/codespell-project/codespell'

@@ -1,0 +1,85 @@
+site_name: DeepDriveWE-Academy
+site_description: >-
+  Weighted ensemble molecular dynamics using the Academy
+  multi-agent framework.
+site_url: https://braceal.github.io/deepdrivewe-academy
+repo_url: https://github.com/braceal/deepdrivewe-academy
+repo_name: braceal/deepdrivewe-academy
+
+theme:
+  name: material
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_root_heading: true
+            show_source: true
+            members_order: source
+            show_signature_annotations: true
+            separate_signature: true
+  - gen-files:
+      scripts:
+        - docs/gen_ref_pages.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Claude Skill: getting-started/claude-skill.md
+  - Concepts:
+      - Weighted Ensemble: concepts/weighted-ensemble.md
+      - Architecture: concepts/architecture.md
+  - Tutorials:
+      - OpenMM NTL9 Folding: tutorials/openmm-ntl9-hk.md
+  - API Reference: reference/
+  - Contributing: contributing.md
