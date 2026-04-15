@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1](https://github.com/ramanathanlab/deepdrivewe-academy/compare/v0.2.0...v0.2.1) (2026-04-15)
+
+
+### Documentation
+
+* add status badges to README ([e6e52b0](https://github.com/ramanathanlab/deepdrivewe-academy/commit/e6e52b073ce44a5d5edaf040096b272a3d1fae3f))
+* add status badges to README ([77d6b5c](https://github.com/ramanathanlab/deepdrivewe-academy/commit/77d6b5c19fa4777f007e5993a27eeb1893688bb2))
+* Add status badges to README for CI and documentation ([589b772](https://github.com/ramanathanlab/deepdrivewe-academy/commit/589b772a65fa6173563c672e70739e06eb72fe63))
+
 ## [0.2.0](https://github.com/ramanathanlab/deepdrivewe-academy/compare/v0.1.0...v0.2.0) (2026-04-15)
 
 
