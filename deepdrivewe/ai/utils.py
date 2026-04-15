@@ -31,9 +31,9 @@ class LatentSpaceHistory:
 
         Parameters
         ----------
-        z: array-like
+        z : array-like
             The latent space coordinates (n_frames, d)
-        pcords: array-like
+        pcoords : array-like
             The progress coordinates (n_frames, 1)
         """
         self.z = z
@@ -50,18 +50,15 @@ class LatentSpaceHistory:
 
         Parameters
         ----------
-        x: array-like
-            X data for the scatter plot
-        y: array-like
-            Y data for the scatter plot
-        color: array-like
-            Data used for coloring the points
-        xlabel: str
-            Label for the X-axis
-        ylabel: str
-            Label for the Y-axis
-        title: str
-            Title of the plot
+        output_path : Path
+            Path to save the plot image.
+        color : array-like, optional
+            Data used for coloring the points. Defaults to
+            progress coordinates.
+        cblabel : str
+            Label for the colorbar.
+        title : str
+            Title of the plot.
         """
         import matplotlib.pyplot as plt
 

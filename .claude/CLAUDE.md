@@ -48,7 +48,7 @@ mypy deepdrivewe/               # type check
 
 ### Docs
 ```bash
-mkdocs build --strict
+properdocs build --strict
 ```
 
 ## Architecture

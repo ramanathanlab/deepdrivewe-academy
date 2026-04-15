@@ -55,12 +55,13 @@ dev = [
 ]
 docs = [
     "black",
+    "properdocs",
     "mkdocs-gen-files",
     "mkdocs-literate-nav",
-    "mkdocs-material==9.4.7",
+    "mkdocs-material>=9.5",
     "mkdocs-section-index",
-    "mkdocstrings==0.23.0",
-    "mkdocstrings-python==1.8.0",
+    "mkdocstrings>=0.26",
+    "mkdocstrings-python>=1.12",
     "mike",
 ]
 

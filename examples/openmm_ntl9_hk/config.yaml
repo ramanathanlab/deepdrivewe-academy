@@ -55,5 +55,5 @@ inference_config:
 compute_config:
   name: workstation
   # Number of GPUs available
-  # The numbers below are analogous to setting CUDA_VISIBLE_DEVICES=1,2,3
-  available_accelerators: ["1", "2", "3"]
+  # The numbers below are analogous to setting CUDA_VISIBLE_DEVICES=0,1,2,3
+  available_accelerators: ["0", "1", "2", "3"]
