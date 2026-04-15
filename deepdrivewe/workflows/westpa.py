@@ -63,6 +63,19 @@ from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.utils import wait_for_file
 
 
+async def dispatch_round_robin(
+    handles: list[Handle[SimulationAgent]],
+    sims: list[SimMetadata],
+) -> None:
+    """Dispatch simulations to agents round-robin."""
+    await asyncio.gather(
+        *[
+            handles[i % len(handles)].simulate(sim)
+            for i, sim in enumerate(sims)
+        ],
+    )
+
+
 class SimulationAgent(Agent, ABC):
     """Base agent for running simulations.
 
@@ -316,13 +329,7 @@ class WestpaAgent(Agent, ABC):
 
             # Dispatch next iteration round-robin
             self.logger.info(f'dispatching iteration {self.iteration}')
-            n = len(self.simulation_handles)
-            await asyncio.gather(
-                *[
-                    self.simulation_handles[i % n].simulate(sim)
-                    for i, sim in enumerate(next_sims)
-                ],
-            )
+            await dispatch_round_robin(self.simulation_handles, next_sims)
 
 
 async def run_westpa_workflow(  # noqa: PLR0913
@@ -426,12 +433,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
     )
 
     # Dispatch first iteration round-robin
-    await asyncio.gather(
-        *[
-            sim_agents[i % num_agents].simulate(sim)
-            for i, sim in enumerate(initial_sims)
-        ],
-    )
+    await dispatch_round_robin(sim_agents, initial_sims)
 
     # Wait for the WestpaAgent to finish
     await manager.wait((westpa_handle,))
