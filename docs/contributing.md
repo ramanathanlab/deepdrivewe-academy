@@ -84,3 +84,48 @@ Then open <http://localhost:8000> in your browser to preview.
 3. Write tests for new functionality.
 4. Make sure `pre-commit run --all-files` and `pytest` pass.
 5. Open a PR targeting `develop`.
+
+## Commit Messages & Releases
+
+This project uses
+[Conventional Commits](https://www.conventionalcommits.org/). Commit
+types are not decorative — they drive automated releases. Every merge
+to `main` runs
+[release-please](https://github.com/googleapis/release-please), which
+reads the commits since the last tag and either opens or updates a
+"release PR". Merging that release PR creates the git tag (`vX.Y.Z`),
+the GitHub Release, a `CHANGELOG.md` entry, and the bumped version
+in `pyproject.toml`.
+
+### Version bump rules
+
+While the version is `< 1.0.0`, release-please runs with
+`bump-minor-pre-major: true`, so breaking changes stay capped at a
+minor bump:
+
+| Commit type                              | Bump       | Example           |
+|------------------------------------------|------------|-------------------|
+| `feat!:` or `BREAKING CHANGE:` in body   | minor      | `0.1.0` → `0.2.0` |
+| `feat:`                                  | minor      | `0.1.0` → `0.2.0` |
+| `fix:`                                   | patch      | `0.1.0` → `0.1.1` |
+| `perf:`                                  | patch      | `0.1.0` → `0.1.1` |
+| `chore:`, `ci:`, `docs:`, `test:`, `refactor:`, `style:` | no release | —     |
+
+Once the project cuts `1.0.0`, standard [Semantic Versioning](https://semver.org/)
+rules apply and `feat!:` bumps the major (`1.2.3` → `2.0.0`).
+
+The highest-severity commit in the batch wins — one `feat:` among
+several `fix:` commits yields a minor bump, not a patch. A batch of
+only `chore:` / `ci:` / `docs:` commits produces no release PR at all.
+
+### Forcing a specific version
+
+To override the automatic bump (for example, to graduate out of `0.x`),
+include a `Release-As:` trailer in any commit body on `main`:
+
+```
+Release-As: 1.0.0
+```
+
+The next release PR will use that version instead of the one inferred
+from commit types.
