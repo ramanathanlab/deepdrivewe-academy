@@ -3,6 +3,8 @@ Academy implementation of DeepDriveWE.
 
 Implementation of [DeepDriveWE](https://pubs.acs.org/doi/full/10.1021/acs.jctc.4c01136) using [Academy](https://docs.academy-agents.org/stable/).
 
+📖 **Documentation:** https://ramanathanlab.github.io/deepdrivewe-academy
+
 ## Installation
 
 To install the package, run the following command:
