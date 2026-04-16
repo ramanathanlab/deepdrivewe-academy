@@ -7,6 +7,7 @@ dill can resolve them on the worker side.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import MDAnalysis
@@ -29,6 +30,7 @@ from deepdrivewe.resamplers import HuberKimResampler
 from deepdrivewe.simulation.openmm import ContactMapRMSDReporter
 from deepdrivewe.simulation.openmm import OpenMMConfig
 from deepdrivewe.simulation.openmm import OpenMMSimulation
+from deepdrivewe.utils import wait_for_file
 from deepdrivewe.workflows.westpa import SimulationAgent
 from deepdrivewe.workflows.westpa import WestpaAgent
 
@@ -251,13 +253,18 @@ class OpenMMSimAgent(SimulationAgent):
 
         self.sim_config.dump_yaml(sim_output_dir / 'config.yaml')
 
+        # Wait for the restart file to be available before running the
+        # simulation. Handles NFS caching issues where the file may not be
+        # immediately visible
+        checkpoint_file = resolve(metadata.parent_restart_file)
+        if checkpoint_file is not None:
+            asyncio.run(wait_for_file(checkpoint_file, self.logger))
+
         simulation = OpenMMSimulation(
             config=self.sim_config.openmm_config,
             top_file=resolve(self.sim_config.top_file),
             output_dir=sim_output_dir,
-            checkpoint_file=resolve(
-                metadata.parent_restart_file,
-            ),
+            checkpoint_file=checkpoint_file,
         )
 
         reporter = ContactMapRMSDReporter(
