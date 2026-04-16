@@ -36,7 +36,6 @@ from workflow import HuberKimWestpaAgent
 from workflow import OpenMMSimAgent
 
 from deepdrivewe.api import WeightedEnsemble
-from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.workflows.westpa import run_westpa_workflow
 
 # --- Configuration ---------------------------------------------------
@@ -137,19 +136,14 @@ async def main() -> None:
 
     init_logging('INFO', logfile=cfg.output_dir / 'runtime.log')
 
-    # Initialize or resume the ensemble on the orchestrator host.
-    checkpointer = EnsembleCheckpointer(output_dir=cfg.output_dir)
-    checkpoint = checkpointer.latest_checkpoint()
-
-    if checkpoint is None:
-        ensemble = WeightedEnsemble(
-            basis_states=cfg.basis_states,
-            target_states=cfg.target_states,
-        )
-        ensemble.initialize_basis_states(cfg.basis_state_initializer)
-    else:
-        ensemble = checkpointer.load(checkpoint)
-        logging.info(f'Loaded ensemble from checkpoint {checkpoint}')
+    # Seed ensemble for the orchestrator. This determines how many
+    # sim agents to launch (one per initial walker). Checkpoint
+    # resume happens on the inference host in agent_on_startup.
+    ensemble = WeightedEnsemble(
+        basis_states=cfg.basis_states,
+        target_states=cfg.target_states,
+    )
+    ensemble.initialize_basis_states(cfg.basis_state_initializer)
 
     logging.info(f'Basis states: {ensemble.basis_states}')
     logging.info(f'Target states: {ensemble.target_states}')
@@ -173,7 +167,7 @@ async def main() -> None:
                 westpa_agent_type=HuberKimWestpaAgent,
                 max_iterations=cfg.num_iterations,
                 ensemble=ensemble,
-                checkpointer=checkpointer,
+                checkpointer=None,
                 sim_agent_kwargs={
                     'sim_config': cfg.simulation_config,
                     'output_dir': cfg.sim_output_dir,

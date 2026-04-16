@@ -47,6 +47,7 @@ target_states:
 # Set to null (or omit) for local / single-site runs.
 inference_config:
   base_dir: /rbstor/abrace/projects/ddwe/src/deepdrivewe-academy/examples/openmm_ntl9_hk_multisite
+  output_dir: results/
   sims_per_bin: 4
 
 # --- Simulation-side -------------------------------------------------

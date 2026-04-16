@@ -115,6 +115,13 @@ class InferenceConfig(BaseModel):
             'local / single-site runs).'
         ),
     )
+    output_dir: Path = Field(
+        default=Path('results/'),
+        description=(
+            'Directory for checkpoints and logs on the inference '
+            'host. Resolved after chdir to base_dir.'
+        ),
+    )
     sims_per_bin: int = Field(
         default=5,
         description='Number of simulations per bin.',
@@ -339,7 +346,7 @@ class HuberKimWestpaAgent(WestpaAgent):
         self.inference_config = inference_config or InferenceConfig()
 
     async def agent_on_startup(self) -> None:
-        """Set the working directory before initializing the agent.
+        """Set the working directory and initialize the checkpointer.
 
         When running on a remote Globus Compute endpoint the
         worker's cwd is not the example directory, so relative
@@ -347,9 +354,30 @@ class HuberKimWestpaAgent(WestpaAgent):
         incorrectly. Changing to ``base_dir`` first ensures they
         land in the right place — same rationale as
         ``SimulationConfig.base_dir`` for the sim agent.
+
+        The checkpointer is created here (not on the orchestrator)
+        because it writes checkpoints and HDF5 files to paths
+        that must resolve on the inference host.
         """
         if self.inference_config.base_dir is not None:
             os.chdir(self.inference_config.base_dir)
+
+        # Create the checkpointer on the inference host where the
+        # output_dir path resolves correctly.
+        output_dir = self.inference_config.output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpointer = EnsembleCheckpointer(output_dir=output_dir)
+
+        # Resume from the latest checkpoint if one exists on this
+        # host.
+        # TODO: On resume the orchestrator still dispatches fresh
+        # initial_sims (from a seed ensemble) which may not match
+        # the checkpoint's next_sims. Full multi-site resume
+        # requires the agent to re-dispatch the correct walkers.
+        checkpoint = self.checkpointer.latest_checkpoint()
+        if checkpoint is not None:
+            self.ensemble = self.checkpointer.load(checkpoint)
+
         await super().agent_on_startup()
 
     def run_inference(
