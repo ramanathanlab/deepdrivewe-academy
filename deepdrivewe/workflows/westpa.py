@@ -48,7 +48,6 @@ from typing import Any
 
 import aiohttp
 import aiohttp.client
-
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
