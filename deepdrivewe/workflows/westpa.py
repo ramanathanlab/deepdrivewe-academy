@@ -86,7 +86,7 @@ async def dispatch_round_robin(
                 except Exception:
                     if attempt == max_retries - 1:
                         raise
-                    await asyncio.sleep(2.0 ** attempt)
+                    await asyncio.sleep(2.0**attempt)
 
     await asyncio.gather(
         *[_send(handles[i % len(handles)], sim) for i, sim in enumerate(sims)],
@@ -413,9 +413,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
     """
     initial_sims = ensemble.next_sims
     num_agents = (
-        num_sim_agents
-        if num_sim_agents is not None
-        else len(initial_sims)
+        num_sim_agents if num_sim_agents is not None else len(initial_sims)
     )
 
     # Register agents with the manager

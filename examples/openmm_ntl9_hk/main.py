@@ -26,26 +26,6 @@ from argparse import ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-# Override aiohttp's default timeout for the cloud exchange session:
-#   total=None      — no per-request wall-clock limit; long iterations with
-#                     many walkers would otherwise hit the default total=300s
-#                     and drop the SSE connection mid-run.
-#   sock_read=None  — no idle-read timeout on the socket. The SSE server is
-#                     supposed to flush within request_timeout_s=60 s, but
-#                     under load (e.g. 200+ sims dispatched at once) it can
-#                     miss that window. A finite sock_read kills the agents'
-#                     SSE listener, making them deaf to future tasks.
-#                     Hung PUT requests are guarded instead by the semaphore
-#                     and per-attempt retries in dispatch_round_robin.
-#   sock_connect=30 — keep a reasonable TCP-handshake limit.
-import aiohttp
-import aiohttp.client
-aiohttp.client.DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
-    total=None,
-    sock_connect=30,
-    sock_read=None,
-)
-
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.logging import init_logging
