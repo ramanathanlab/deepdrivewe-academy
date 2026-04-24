@@ -261,6 +261,10 @@ class OpenMMSimAgent(SimulationAgent):
         await super().agent_on_startup()
         if self.sim_config.base_dir is not None:
             os.chdir(self.sim_config.base_dir)
+            self.logger.info(
+                'Changed simulation working directory to %s',
+                self.sim_config.base_dir,
+            )
 
     def run_simulation(self, metadata: SimMetadata) -> SimResult:
         """Run an OpenMM simulation."""
@@ -335,15 +339,20 @@ class HuberKimWestpaAgent(WestpaAgent):
         worker's cwd is not the example directory, so relative
         paths (checkpointer output, logfile, etc.) would resolve
         incorrectly. Changing to ``base_dir`` first ensures they
-        land in the right place — same rationale as
-        ``SimulationConfig.base_dir`` for the sim agent.
+        land in the right place.
 
         The checkpointer is created here (not on the orchestrator)
         because it writes checkpoints and HDF5 files to paths
         that must resolve on the inference host.
         """
+        await super().agent_on_startup()
+
         if self.inference_config.base_dir is not None:
             os.chdir(self.inference_config.base_dir)
+            self.logger.info(
+                'Changed inference working directory to %s',
+                self.inference_config.base_dir,
+            )
 
         # Create the checkpointer on the inference host where the
         # output_dir path resolves correctly.
@@ -360,8 +369,6 @@ class HuberKimWestpaAgent(WestpaAgent):
         checkpoint = self.checkpointer.latest_checkpoint()
         if checkpoint is not None:
             self.ensemble = self.checkpointer.load(checkpoint)
-
-        await super().agent_on_startup()
 
     def run_inference(
         self,
