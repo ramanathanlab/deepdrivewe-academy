@@ -94,18 +94,8 @@ def create_executors(
     # Imported lazily so the local smoke test does not require
     # globus-compute-sdk to be installed.
     from globus_compute_sdk import Executor as GCExecutor
-    # from globus_compute_sdk.serialize import AllCodeStrategies
-    # from globus_compute_sdk.serialize import ComputeSerializer
-
-    # AllCodeStrategies inlines class source code during
-    # serialization so the endpoint worker does not need
-    # `workflow.py` on its PYTHONPATH (the default dill strategy
-    # pickles a module reference like `workflow.OpenMMSimAgent`
-    # which fails with ModuleNotFoundError on the remote side).
-    # serializer = ComputeSerializer(strategy_code=AllCodeStrategies())
 
     sim_executor = GCExecutor(endpoint_id=simulation_endpoint_id)
-    # sim_executor.serializer = serializer
 
     if inference_endpoint_id is None:
         logging.warning(
@@ -114,7 +104,6 @@ def create_executors(
         westpa_executor: Executor = ThreadPoolExecutor(max_workers=1)
     else:
         westpa_executor = GCExecutor(endpoint_id=inference_endpoint_id)
-        # westpa_executor.serializer = serializer
 
     return {'sim_executor': sim_executor, 'westpa_executor': westpa_executor}
 
