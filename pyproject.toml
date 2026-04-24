@@ -47,6 +47,7 @@ dev = [
     "mypy",
     "pre-commit",
     "pytest",
+    "pytest-asyncio",
     "pytest-cov",
     "ruff",
     "tox",
@@ -75,17 +76,33 @@ dist,
 .*egg-info
 """
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "unit: fast, hermetic tests with no external I/O",
+    "integration: tests that hit the filesystem or HDF5",
+]
+
 [tool.coverage.run]
 plugins = ["covdefaults"]
-omit = ["examples"]
+source = ["deepdrivewe"]
+omit = [
+    "examples/*",
+    # Heavy-infrastructure modules not covered by the unit suite. These
+    # require OpenMM/Amber/parsl and are exercised via example runs, not
+    # pytest. Revisit once CI has those deps.
+    "deepdrivewe/simulation/*",
+    "deepdrivewe/ai/*",
+    "deepdrivewe/workflows/*",
+    "deepdrivewe/parsl.py",
+]
 
 [tool.coverage.report]
-# Effectively disabled. We can't use fail_under = 0 directly because the
-# covdefaults plugin treats a falsy fail_under as "unset" and force-sets
-# it to 100; precision = 2 is needed so single-digit coverage percentages
-# aren't rounded down to 0 before comparison. Bump this up as test
-# coverage grows (target: 80%+).
-fail_under = 0.01
+# Coverage target for the core math/policy modules (api, binners,
+# resamplers, recyclers, utils, checkpoint, io). Bump toward 80%+ as
+# the suite grows.
+fail_under = 70
 precision = 2
 
 [tool.mypy]
@@ -179,7 +196,10 @@ required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.per-file-ignores]
 "*/__init__.py" = ["F401"]
-"*/test_*.py" = ["D10"]
+# Tests are allowed to use magic numbers (PLR2004), broad pytest.raises
+# (PT011), and more relaxed docstring conventions (D10, D401).
+"*/test_*.py" = ["D10", "D401", "PLR2004", "PT011", "SLF001"]
+"tests/conftest.py" = ["D401"]
 
 [tool.ruff.lint.pylint]
 max-args = 7
