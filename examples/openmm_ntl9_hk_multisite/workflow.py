@@ -7,7 +7,6 @@ dill can resolve them on the worker side.
 
 from __future__ import annotations
 
-import asyncio
 import os
 from pathlib import Path
 
@@ -31,7 +30,6 @@ from deepdrivewe.resamplers import HuberKimResampler
 from deepdrivewe.simulation.openmm import ContactMapRMSDReporter
 from deepdrivewe.simulation.openmm import OpenMMConfig
 from deepdrivewe.simulation.openmm import OpenMMSimulation
-from deepdrivewe.utils import wait_for_file
 from deepdrivewe.workflows.westpa import SimulationAgent
 from deepdrivewe.workflows.westpa import WestpaAgent
 
@@ -43,19 +41,17 @@ class SimulationConfig(BaseModel):
 
     Notes
     -----
-    File paths on this model are *not* resolved at load time. The
-    simulation agent runs on the Globus Compute endpoint host, so
-    relative paths (``reference_file``, ``top_file``, etc.) are
-    resolved at runtime against ``base_dir`` — an absolute path on
-    the sim host. The Parsl worker's Python cwd is NOT the example
-    directory, so all relative paths must go through
-    :meth:`resolve_path`.
+    The simulation agent changes its working directory to
+    ``base_dir`` on startup, so relative paths (``reference_file``,
+    ``top_file``, etc.) resolve correctly without explicit
+    resolution.
     """
 
     base_dir: Path = Field(
         description=(
             'Absolute path to the example directory on the sim host. '
-            'All relative paths in this config are resolved against it.'
+            'The agent chdirs here on startup so relative paths '
+            'resolve correctly.'
         ),
     )
     openmm_config: OpenMMConfig = Field(
@@ -80,15 +76,6 @@ class SimulationConfig(BaseModel):
         default=['CA'],
         description='OpenMM atom selection strings.',
     )
-
-    def resolve_path(self, path: Path | str | None) -> Path | None:
-        """Resolve a path against ``base_dir`` if relative."""
-        if path is None:
-            return None
-        p = Path(path)
-        if p.is_absolute():
-            return p
-        return self.base_dir / p
 
 
 class InferenceConfig(BaseModel):
@@ -263,18 +250,23 @@ class OpenMMSimAgent(SimulationAgent):
         self.sim_config = sim_config
         self.output_dir = output_dir
 
+    async def agent_on_startup(self) -> None:
+        """Set the working directory for path resolution on the sim host.
+
+        When running on a remote Globus Compute endpoint the worker's cwd
+        is not the example directory, so relative paths (e.g. checkpoint files,
+        output_dir) would resolve incorrectly. Changing to ``base_dir`` first
+        ensures they land in the right place.
+        """
+        await super().agent_on_startup()
+        if self.sim_config.base_dir is not None:
+            os.chdir(self.sim_config.base_dir)
+
     def run_simulation(self, metadata: SimMetadata) -> SimResult:
         """Run an OpenMM simulation."""
         metadata.mark_simulation_start()
-        resolve = self.sim_config.resolve_path
 
-        # Resolve all relative paths against the sim-side base_dir.
-        # The Parsl worker's Python cwd is NOT the example directory,
-        # so every path that came from the config or from the
-        # orchestrator (e.g. parent_restart_file) must be resolved.
-        output_dir = resolve(self.output_dir)
-        assert output_dir is not None
-        sim_output_dir = output_dir / metadata.simulation_name
+        sim_output_dir = self.output_dir / metadata.simulation_name
         if sim_output_dir.exists():
             for f in sim_output_dir.iterdir():
                 f.unlink()
@@ -282,25 +274,16 @@ class OpenMMSimAgent(SimulationAgent):
 
         self.sim_config.dump_yaml(sim_output_dir / 'config.yaml')
 
-        # Wait for the restart file to be available before running the
-        # simulation. Handles NFS caching issues where the file may not be
-        # immediately visible
-        checkpoint_file = resolve(metadata.parent_restart_file)
-        if checkpoint_file is not None:
-            asyncio.run(wait_for_file(checkpoint_file, self.logger))
-
         simulation = OpenMMSimulation(
             config=self.sim_config.openmm_config,
-            top_file=resolve(self.sim_config.top_file),
+            top_file=self.sim_config.top_file,
             output_dir=sim_output_dir,
-            checkpoint_file=checkpoint_file,
+            checkpoint_file=metadata.parent_restart_file,
         )
 
         reporter = ContactMapRMSDReporter(
             report_interval=self.sim_config.openmm_config.report_steps,
-            reference_file=(
-                self.sim_config.base_dir / self.sim_config.reference_file
-            ),
+            reference_file=self.sim_config.reference_file,
             cutoff_angstrom=self.sim_config.cutoff_angstrom,
             mda_selection=self.sim_config.mda_selection,
             openmm_selection=self.sim_config.openmm_selection,
