@@ -47,6 +47,9 @@ mypy deepdrivewe/               # type check
 ```
 
 ### Docs
+
+Documentation is built with [properdocs](https://properdocs.readthedocs.io/) (MkDocs-based). Configuration lives in `properdocs.yml` at the repo root (not `mkdocs.yml`). Doc sources are in `docs/` and links between doc pages must point to other files within `docs/` — use absolute GitHub URLs for files outside `docs/` (e.g. example READMEs).
+
 ```bash
 properdocs build --strict
 ```

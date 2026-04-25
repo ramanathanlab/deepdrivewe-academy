@@ -344,3 +344,13 @@ scheduler. See `deepdrivewe.parsl` for supported backends:
       name: local
       max_workers_per_node: 1
     ```
+
+## Next Steps
+
+Once you are comfortable with this single-site example, see the
+[multi-site example][multisite] which extends the same workflow to run
+across multiple hosts — an orchestrator on your laptop, GPU simulations
+on one HPC endpoint, and CPU inference on another — communicating
+through the Academy Exchange Cloud via Globus Compute.
+
+[multisite]: https://github.com/ramanathanlab/deepdrivewe-academy/tree/main/examples/openmm_ntl9_hk_multisite
