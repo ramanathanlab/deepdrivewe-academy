@@ -1,5 +1,11 @@
 ci:
   autofix_prs: false
+  # pre-commit.ci opens a weekly PR that runs `pre-commit autoupdate`,
+  # bumping hook revisions in this file. PRs target `develop` to match
+  # the project's integration branch (see CLAUDE.md).
+  autoupdate_branch: develop
+  autoupdate_schedule: weekly
+  autoupdate_commit_msg: 'chore: pre-commit autoupdate'
 repos:
   - repo: 'https://github.com/pre-commit/pre-commit-hooks'
     rev: v4.5.0
