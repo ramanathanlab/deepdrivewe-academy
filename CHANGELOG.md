@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/ramanathanlab/deepdrivewe-academy/compare/v0.2.1...v0.3.0) (2026-04-25)
+
+
+### Features
+
+* multi-site OpenMM NTL9 Huber-Kim WE example ([#32](https://github.com/ramanathanlab/deepdrivewe-academy/issues/32)) ([2d0304d](https://github.com/ramanathanlab/deepdrivewe-academy/commit/2d0304d9111ff91b77d8d6abdf9072b4fbc8e09d))
+
+
+### Bug Fixes
+
+* **examples:** make minimal_westpa runnable locally with temp restart files ([702a6d4](https://github.com/ramanathanlab/deepdrivewe-academy/commit/702a6d41f3aeb468204569f337801ee77c09a6c9))
+
+
+### Documentation
+
+* **tests:** note workflow integration tests in tests/README.md ([7b02cd4](https://github.com/ramanathanlab/deepdrivewe-academy/commit/7b02cd4d11a9e89ee93aa8d94e188320da4e205f))
+
 ## [0.2.1](https://github.com/ramanathanlab/deepdrivewe-academy/compare/v0.2.0...v0.2.1) (2026-04-15)
 
 
