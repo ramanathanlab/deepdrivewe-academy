@@ -16,7 +16,7 @@ from deepdrivewe.binners.base import Binner
 SimFactory = Callable[..., SimMetadata]
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestRectilinearBinner:
     """Covers 1D bin assignment and construction checks."""
 
@@ -89,7 +89,7 @@ class TestRectilinearBinner:
             ).all()
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestMultiRectilinearBinner:
     """Covers multi-dimensional bin assignment."""
 
@@ -175,7 +175,7 @@ class TestMultiRectilinearBinner:
             ).all()
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestBinnerHelpers:
     """Covers shared methods on the base class (via a concrete subclass)."""
 
@@ -251,7 +251,7 @@ class TestBinnerHelpers:
         assert meta.binner_pickle  # non-empty
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_binner_is_abstract() -> None:
     with pytest.raises(TypeError):
         Binner(bin_target_counts=1)  # type: ignore[abstract]

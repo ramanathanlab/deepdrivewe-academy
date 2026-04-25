@@ -37,7 +37,7 @@ def _metadata_for(iteration: int) -> IterationMetadata:
     )
 
 
-@pytest.mark.integration()
+@pytest.mark.integration
 class TestWestpaH5File:
     """Covers creation and single-iteration append on the HDF5 writer."""
 

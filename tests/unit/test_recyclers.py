@@ -16,7 +16,7 @@ from deepdrivewe.recyclers.base import Recycler
 SimFactory = Callable[..., SimMetadata]
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestLowRecycler:
     """Covers the "recycle below threshold" policy."""
 
@@ -95,7 +95,7 @@ class TestLowRecycler:
         assert new_nxt[0].parent_restart_file == nxt[0].parent_restart_file
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestHighRecycler:
     """Covers the "recycle above threshold" policy."""
 
@@ -125,7 +125,7 @@ class TestHighRecycler:
         assert idxs == [1]
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_recycler_is_abstract(basis_states: BasisStates) -> None:
     with pytest.raises(TypeError):
         Recycler(basis_states)  # type: ignore[abstract]

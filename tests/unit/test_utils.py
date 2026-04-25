@@ -12,7 +12,7 @@ from deepdrivewe.utils import retry_on_exception
 from deepdrivewe.utils import wait_for_file
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestRetryOnException:
     """Covers the `retry_on_exception` decorator."""
 
@@ -50,7 +50,7 @@ class TestRetryOnException:
             always_fails()
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestWaitForFile:
     """Covers the async NFS-aware `wait_for_file` helper."""
 

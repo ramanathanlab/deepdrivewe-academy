@@ -133,7 +133,7 @@ class _RecordingHandle:
         self.calls.append(sim.simulation_id)
 
 
-@pytest.mark.integration()
+@pytest.mark.integration
 class TestDispatchRoundRobin:
     """Covers the round-robin dispatcher."""
 
@@ -174,7 +174,7 @@ class TestDispatchRoundRobin:
             assert h.calls == []
 
 
-@pytest.mark.integration()
+@pytest.mark.integration
 class TestRunWestpaWorkflow:
     """End-to-end smoke test exercising SimulationAgent + WestpaAgent."""
 

@@ -196,9 +196,17 @@ required-imports = ["from __future__ import annotations"]
 [tool.ruff.per-file-ignores]
 "*/__init__.py" = ["F401"]
 # Tests are allowed to use magic numbers (PLR2004), broad pytest.raises
-# (PT011), and more relaxed docstring conventions (D10, D401).
-"*/test_*.py" = ["D10", "D401", "PLR2004", "PT011", "SLF001"]
+# (PT011), broad pytest.warns (PT030), and more relaxed docstring
+# conventions (D10, D401).
+"*/test_*.py" = ["D10", "D401", "PLR2004", "PT011", "PT030", "SLF001"]
 "tests/conftest.py" = ["D401"]
+# Lazy imports inside functions are intentional in these modules:
+# heavy deps (torch, mdlearn, synd) and optional plugins
+# (globus-compute-sdk) are imported on-demand to keep the local
+# install lightweight.
+"deepdrivewe/ai/*.py" = ["PLC0415"]
+"deepdrivewe/simulation/synd.py" = ["PLC0415"]
+"examples/**/*.py" = ["PLC0415"]
 
 [tool.ruff.lint.pylint]
 max-args = 8

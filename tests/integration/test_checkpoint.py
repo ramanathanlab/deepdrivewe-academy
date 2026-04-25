@@ -24,7 +24,7 @@ def _populate_cur_sims(ensemble: WeightedEnsemble) -> list[SimMetadata]:
     return cur
 
 
-@pytest.mark.integration()
+@pytest.mark.integration
 class TestEnsembleCheckpointer:
     """Covers checkpoint save/load round-trips and latest-file discovery."""
 

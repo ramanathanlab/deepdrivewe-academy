@@ -19,7 +19,7 @@ from deepdrivewe.api import WeightedEnsemble
 SimFactory = Callable[..., SimMetadata]
 
 
-@pytest.fixture()
+@pytest.fixture
 def sim_factory(tmp_path: Path) -> SimFactory:
     """Build `SimMetadata` instances with sensible defaults.
 
@@ -62,7 +62,7 @@ def sim_factory(tmp_path: Path) -> SimFactory:
     return _make
 
 
-@pytest.fixture()
+@pytest.fixture
 def basis_state_dir(tmp_path: Path) -> Path:
     """Create a nested basis-state directory tree.
 
@@ -81,7 +81,7 @@ def basis_state_dir(tmp_path: Path) -> Path:
     return root
 
 
-@pytest.fixture()
+@pytest.fixture
 def simple_initializer() -> BasisStateInitializer:
     """Deterministic basis-state initializer returning a 1D pcoord."""
 
@@ -94,7 +94,7 @@ def simple_initializer() -> BasisStateInitializer:
     return _init
 
 
-@pytest.fixture()
+@pytest.fixture
 def basis_states(
     basis_state_dir: Path,
     simple_initializer: BasisStateInitializer,
@@ -109,13 +109,13 @@ def basis_states(
     return states
 
 
-@pytest.fixture()
+@pytest.fixture
 def target_states() -> list[TargetState]:
     """A single target state for tests that require one."""
     return [TargetState(label='target', pcoord=[0.0])]
 
 
-@pytest.fixture()
+@pytest.fixture
 def weighted_ensemble(
     basis_states: BasisStates,
     target_states: list[TargetState],
@@ -128,7 +128,7 @@ def weighted_ensemble(
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def rng() -> np.random.Generator:
     """Deterministic numpy Generator for tests that need randomness."""
     return np.random.default_rng(seed=1234)

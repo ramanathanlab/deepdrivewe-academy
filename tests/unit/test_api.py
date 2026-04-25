@@ -20,7 +20,7 @@ from deepdrivewe.api import validate_and_resolve_file
 from deepdrivewe.api import WeightedEnsemble
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestValidateAndResolveFile:
     """Covers the small validator helper."""
 
@@ -43,7 +43,7 @@ class TestValidateAndResolveFile:
         assert resolved == target.resolve()
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestSimMetadata:
     """Covers `SimMetadata` validation, helpers and mutations."""
 
@@ -109,7 +109,7 @@ class TestSimMetadata:
         assert sim.endpoint_type == 1
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestIterationMetadata:
     """Covers `IterationMetadata` defaults and serialization."""
 
@@ -137,7 +137,7 @@ class TestIterationMetadata:
         assert 'binner_hash' in payload
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestBaseModelYAML:
     """YAML dump/load round-trip on the shared `BaseModel`."""
 
@@ -160,7 +160,7 @@ class TestBaseModelYAML:
         assert loaded == state
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestBasisStates:
     """Covers basis state loading, iteration and uniform init."""
 
@@ -265,7 +265,7 @@ class TestBasisStates:
         assert len(list(iter(basis_states))) == len(basis_states)
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestWeightedEnsemble:
     """Covers `WeightedEnsemble` lifecycle helpers."""
 
@@ -314,7 +314,7 @@ class TestWeightedEnsemble:
         assert weighted_ensemble.next_sims == nxt
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_target_state_requires_pcoord() -> None:
     with pytest.raises(ValidationError):
         TargetState.model_validate({'label': 'unbound'})

@@ -42,7 +42,7 @@ class _IdentityResampler(Resampler):
         return cur_sims, next_sims
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestResamplerPrimitives:
     """Covers the split/merge/adjust helpers on the base class."""
 
@@ -168,7 +168,7 @@ class TestResamplerPrimitives:
         assert _total_weight(out) == pytest.approx(1.0)
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestSplitLowResampler:
     """Covers the "split the lowest-pcoord walker" policy."""
 
@@ -218,7 +218,7 @@ class TestSplitLowResampler:
         assert _total_weight(resampled) == pytest.approx(_total_weight(nxt))
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestSplitHighResampler:
     """Covers the "split the highest-pcoord walker" policy."""
 
@@ -286,7 +286,7 @@ class TestSplitHighResampler:
         assert _total_weight(resampled) == pytest.approx(_total_weight(nxt))
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestHuberKimResampler:
     """Covers the Huber-Kim policy through `Resampler.run`."""
 
@@ -323,7 +323,7 @@ class TestHuberKimResampler:
         assert meta.iteration_id == 1
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 class TestLOFLowResampler:
     """Covers the LOF-based two-step resampler."""
 
