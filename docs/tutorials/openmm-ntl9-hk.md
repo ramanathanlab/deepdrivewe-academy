@@ -21,7 +21,7 @@ Create a conda environment with OpenMM:
 conda create -n deepdrivewe python=3.11 -y
 conda activate deepdrivewe
 conda install -c conda-forge openmm=8.1
-pip install -e '.[dev]'
+pip install -e '.[dev]'      # or: uv pip install -e '.[dev]'
 ```
 
 ## File Structure
