@@ -12,7 +12,7 @@ authors = [
 ]
 description = "Implementation of DeepDriveWE using Academy."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 classifiers = [
     "License :: OSI Approved :: MIT License",
