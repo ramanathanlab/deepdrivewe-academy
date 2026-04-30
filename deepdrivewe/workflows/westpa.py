@@ -67,26 +67,22 @@ async def dispatch_round_robin(
     handles: list[Handle[SimulationAgent]],
     sims: list[SimMetadata],
     max_retries: int = 3,
-    concurrency: int = 32,
 ) -> None:
     """Dispatch simulations to agents round-robin.
 
-    Limits concurrent sends to ``concurrency`` to avoid exhausting the
-    HTTP connection pool, and retries each send up to ``max_retries``
-    times on transient errors (e.g. exchange timeout or connection drop).
+    Retries each send up to ``max_retries`` times on transient errors
+    (e.g. exchange timeout or connection drop).
     """
-    sem = asyncio.Semaphore(concurrency)
 
     async def _send(handle: Handle[SimulationAgent], sim: SimMetadata) -> None:
-        async with sem:
-            for attempt in range(max_retries):
-                try:
-                    await handle.simulate(sim)
-                    return
-                except Exception:
-                    if attempt == max_retries - 1:
-                        raise
-                    await asyncio.sleep(2.0**attempt)
+        for attempt in range(max_retries):
+            try:
+                await handle.simulate(sim)
+                return
+            except Exception:
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(2.0**attempt)
 
     await asyncio.gather(
         *[_send(handles[i % len(handles)], sim) for i, sim in enumerate(sims)],
