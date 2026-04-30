@@ -1,0 +1,63 @@
+name: Sync uv.lock for Dependabot
+
+# Dependabot's `pip` ecosystem updates `pyproject.toml` but does not
+# refresh `uv.lock`. CI runs `uv sync --frozen`, which would fail on
+# every Dependabot PR until someone manually runs `uv lock`. This
+# workflow regenerates the lockfile on Dependabot PRs and pushes the
+# result back to the PR branch.
+#
+# `pull_request_target` is required so the job runs with a writable
+# `GITHUB_TOKEN` (the standard `pull_request` event grants Dependabot
+# read-only tokens). The job is gated on `github.actor == 'dependabot[bot]'`
+# and the `python` label, so it never runs on user PRs or on the
+# github-actions ecosystem PRs.
+#
+# Note: pushes made with `GITHUB_TOKEN` do not re-trigger downstream
+# workflows. After this job pushes the lockfile, the existing CI run
+# on the original Dependabot commit will already be in flight or
+# complete; if it failed before this fixup, re-run it manually or
+# swap `GITHUB_TOKEN` for a PAT to enable auto re-trigger.
+
+on:
+  pull_request_target:
+    branches: [develop, main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependabot-uv-lock-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync-lock:
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      contains(github.event.pull_request.labels.*.name, 'python')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Refresh uv.lock
+        run: uv lock
+
+      - name: Commit lockfile if changed
+        run: |
+          if [[ -n "$(git status --porcelain uv.lock)" ]]; then
+            git config user.name "dependabot[bot]"
+            git config user.email "49699333+dependabot[bot]@users.noreply.github.com"
+            git add uv.lock
+            git commit -m "chore: refresh uv.lock"
+            git push
+          else
+            echo "uv.lock already in sync"
+          fi
