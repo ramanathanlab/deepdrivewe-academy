@@ -14,21 +14,43 @@ Implementation of [DeepDriveWE](https://pubs.acs.org/doi/full/10.1021/acs.jctc.4
 
 ## Installation
 
-To install the package, run the following command:
+The project supports both [uv](https://docs.astral.sh/uv/) and pip.
+A pinned `uv.lock` is committed for reproducible installs.
+
+### With uv (recommended)
+
+```bash
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
+cd deepdrivewe-academy
+uv sync
+```
+
+`uv sync` creates a `.venv/`, installs the project in editable mode, and
+resolves all dependencies from `uv.lock`. Activate the environment with
+`source .venv/bin/activate`, or prefix commands with `uv run` (e.g.
+`uv run python`).
+
+### With pip
+
 ```bash
 git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 pip install -e .
 ```
 
-Full installation including dependencies:
+### Full installation with MD dependencies
+
+OpenMM and AmberTools are best installed via conda. After creating the
+conda env, you can use either uv or pip for the Python package:
+
 ```bash
 git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
 cd deepdrivewe-academy
 conda create -n deepdrivewe python=3.10 -y
+conda activate deepdrivewe
 conda install omnia::ambertools -y
 conda install conda-forge::openmm==7.7 -y
-pip install -e .
+pip install -e .   # or: uv pip install -e .
 ```
 
 To use deep learning models, install the correct version of [PyTorch](https://pytorch.org/get-started/locally/)
@@ -39,9 +61,16 @@ pip install torch==1.12
 
 ## Contributing
 
-For development, it is recommended to use a virtual environment. The following
-commands will create a virtual environment, install the package in editable
-mode, and install the pre-commit hooks.
+For development, install the project with the `dev` and `docs` extras and
+set up the pre-commit hooks.
+
+With uv (recommended — uses `uv.lock` for reproducible installs):
+```bash
+uv sync --extra dev --extra docs
+uv run pre-commit install
+```
+
+With pip:
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -49,23 +78,37 @@ pip install -U pip setuptools wheel
 pip install -e '.[dev,docs]'
 pre-commit install
 ```
-To test the code, run the following command:
+
+To test the code:
 ```bash
+# uv
+uv run pre-commit run --all-files
+uv run tox -e py310
+
+# pip / activated venv
 pre-commit run --all-files
 tox -e py310
 ```
+
+When a dependency in `pyproject.toml` changes, refresh the lock file with
+`uv lock` and commit `uv.lock` alongside the change.
 
 ### Building the Documentation
 
 Documentation is built with [ProperDocs](https://properdocs.org/) (a
 continuation of MkDocs 1.x).
 ```bash
+# uv
+uv sync --extra docs
+uv run properdocs serve
+
+# pip
 pip install -e '.[dev,docs]'
 properdocs serve
 ```
 Then open http://localhost:8000 in your browser. For a production build:
 ```bash
-properdocs build --strict
+properdocs build --strict   # or: uv run properdocs build --strict
 ```
 
 ## Citation
