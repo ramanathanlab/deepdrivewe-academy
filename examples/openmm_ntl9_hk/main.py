@@ -26,6 +26,8 @@ from argparse import ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import aiohttp
+import aiohttp.client
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.logging import init_logging
@@ -38,6 +40,26 @@ from workflow import OpenMMSimAgent
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.workflows.westpa import run_westpa_workflow
+
+# Override aiohttp's default timeout for the orchestrator's exchange session:
+#   total=None      — no per-request wall-clock limit; long iterations with
+#                     many walkers would otherwise hit the default total=300s
+#                     and drop the SSE connection mid-run.
+#   sock_read=None  — no idle-read timeout on the socket. The SSE server is
+#                     supposed to flush within request_timeout_s=60 s, but
+#                     under load (e.g. 200+ sims dispatched at once) it can
+#                     miss that window. A finite sock_read kills the agents'
+#                     SSE listener, making them deaf to future tasks.
+#                     Hung PUT requests are guarded instead by the semaphore
+#                     and per-attempt retries in dispatch_round_robin.
+#   sock_connect=30 — keep a reasonable TCP-handshake limit.
+# Note: Parsl worker processes never execute this module, so they are covered
+# by the matching patch in SimulationAgent.__init__ instead.
+aiohttp.client.DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
+    total=None,
+    sock_connect=30,
+    sock_read=None,
+)
 
 EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
 

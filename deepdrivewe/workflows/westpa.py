@@ -46,6 +46,8 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
+import aiohttp
+import aiohttp.client
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
@@ -102,6 +104,20 @@ class SimulationAgent(Agent, ABC):
         logfile: Path | None = None,
     ) -> None:
         super().__init__()
+        # Patch the aiohttp default session timeout so the SSE listener
+        # survives long-running iterations.  Academy creates the exchange
+        # ClientSession (step 1 of run_until_complete) AFTER __init__, so
+        # setting DEFAULT_TIMEOUT here is the earliest reliable hook.
+        # This is especially important for sim agents running inside Parsl
+        # worker subprocesses: those processes never execute main.py, so
+        # without this patch they inherit aiohttp's default total=300 s and
+        # the SSE listener times out after 5 minutes, causing agents to stop
+        # receiving new simulation tasks.
+        aiohttp.client.DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
+            total=None,
+            sock_connect=30,
+            sock_read=None,
+        )
         self.westpa_handle = westpa_handle
         self.logfile = logfile
 
