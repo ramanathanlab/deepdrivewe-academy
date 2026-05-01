@@ -57,3 +57,8 @@ compute_config:
   # Number of GPUs available
   # The numbers below are analogous to setting CUDA_VISIBLE_DEVICES=0,1,2,3
   available_accelerators: ["0", "1", "2", "3"]
+
+# Number of sim agents to launch. Must equal the number of GPU slots so
+# agents are reused across walkers rather than queued indefinitely.
+# Without this, launching more agents than slots causes a deadlock.
+num_sim_agents: 4

@@ -142,6 +142,7 @@ async def main() -> None:
                 sim_executor='gpu',
                 westpa_executor='cpu',
                 logfile=cfg.output_dir / 'runtime.log',
+                num_sim_agents=cfg.num_sim_agents,
             )
     finally:
         gpu_executor.shutdown(wait=False)

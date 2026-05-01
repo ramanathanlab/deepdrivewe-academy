@@ -46,6 +46,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
+import aiohttp
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
@@ -66,13 +67,33 @@ from deepdrivewe.utils import wait_for_file
 async def dispatch_round_robin(
     handles: list[Handle[SimulationAgent]],
     sims: list[SimMetadata],
+    max_retries: int = 3,
 ) -> None:
-    """Dispatch simulations to agents round-robin."""
+    """Dispatch simulations to agents round-robin.
+
+    Retries each send up to ``max_retries`` times on transient errors
+    (e.g. exchange timeout or connection drop).
+    """
+
+    async def _send(handle: Handle[SimulationAgent], sim: SimMetadata) -> None:
+        for attempt in range(max_retries):
+            try:
+                await handle.simulate(sim)
+                return
+            except Exception as exc:
+                if attempt == max_retries - 1 or not isinstance(
+                    exc,
+                    (
+                        aiohttp.ClientConnectionError,
+                        aiohttp.ClientPayloadError,
+                        asyncio.TimeoutError,
+                    ),
+                ):
+                    raise
+                await asyncio.sleep(2.0**attempt)
+
     await asyncio.gather(
-        *[
-            handles[i % len(handles)].simulate(sim)
-            for i, sim in enumerate(sims)
-        ],
+        *[_send(handles[i % len(handles)], sim) for i, sim in enumerate(sims)],
     )
 
 
@@ -344,14 +365,15 @@ async def run_westpa_workflow(  # noqa: PLR0913
     sim_executor: str | None = None,
     westpa_executor: str | None = None,
     logfile: Path | None = None,
+    num_sim_agents: int | None = None,
 ) -> None:
     """Run a WESTPA workflow with user-defined agent types.
 
     Registers and launches all agents, dispatches the first
     iteration of simulations from ``ensemble.next_sims``,
-    and waits for the workflow to complete. One
-    ``SimulationAgent`` is launched per initial simulation;
-    simulations are distributed round-robin.
+    and waits for the workflow to complete. Simulations are
+    distributed round-robin across ``num_sim_agents`` agents,
+    so each agent may handle multiple simulations sequentially.
 
     Parameters
     ----------
@@ -384,11 +406,19 @@ async def run_westpa_workflow(  # noqa: PLR0913
         Log file path passed to each agent. Agents call
         ``init_logging`` in ``agent_on_startup`` so that
         workers in separate processes get logging configured.
+    num_sim_agents : int, optional
+        Number of simulation agents to launch. Must not exceed
+        the number of available executor slots (e.g., GPUs).
+        Defaults to ``len(ensemble.next_sims)``, which is
+        correct only when slots >= walkers. When slots <
+        walkers (e.g., 4 GPUs, 72 walkers), set this to the
+        slot count so agents are reused across simulations
+        rather than queued indefinitely.
     """
     initial_sims = ensemble.next_sims
-    # TODO: Generalize this so we don't have to assume one agent per sim.
-    # This is the case were we reuse the same hardware for multiple sims.
-    num_agents = len(initial_sims)
+    num_agents = (
+        num_sim_agents if num_sim_agents is not None else len(initial_sims)
+    )
 
     # Register agents with the manager
     reg_westpa = await manager.register_agent(westpa_agent_type)
