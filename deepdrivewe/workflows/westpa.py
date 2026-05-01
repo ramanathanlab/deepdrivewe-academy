@@ -46,6 +46,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
+import aiohttp
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
@@ -79,8 +80,15 @@ async def dispatch_round_robin(
             try:
                 await handle.simulate(sim)
                 return
-            except Exception:
-                if attempt == max_retries - 1:
+            except Exception as exc:
+                if attempt == max_retries - 1 or not isinstance(
+                    exc,
+                    (
+                        aiohttp.ClientConnectionError,
+                        aiohttp.ClientPayloadError,
+                        asyncio.TimeoutError,
+                    ),
+                ):
                     raise
                 await asyncio.sleep(2.0**attempt)
 
