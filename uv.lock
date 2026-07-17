@@ -16,7 +16,7 @@ resolution-markers = [
 
 [[package]]
 name = "academy-py"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -31,9 +31,9 @@ dependencies = [
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/ef/1c3ce80a4d8109db318f39eb0160ee7bc62f965b06cf40ca63cdeef6a130/academy_py-0.4.0.tar.gz", hash = "sha256:db91e4ffe82d133a0ee5b65a05650bb1f6b73323e4b914f864e069ea1ea286a9", size = 498169 }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/b5/8060f36b53eded29dde5f7efc38565558a6f8ab1a6b914fbb89dbc3ff91d/academy_py-0.5.0.tar.gz", hash = "sha256:94ffa1d474057c5e3b1537f3c6a6de584e19f7dc739a55db3e2c945400e2543b", size = 531473 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/d0/8c2f98ed26f101045e78e7f1718538b5e981bba4b0ee054547a21df8c8bf/academy_py-0.4.0-py3-none-any.whl", hash = "sha256:d0288fe98f6e2b22c38f494bc3d82d0654eb7c7c28408c8eeb4783ce4a580855", size = 100565 },
+    { url = "https://files.pythonhosted.org/packages/9e/e6/0427d626505934d4d475839ae638272ccd3b980524caf84237cb14ecb6a5/academy_py-0.5.0-py3-none-any.whl", hash = "sha256:5c1992e5f7cbea39085492d6a9bec2b39d4a5b88a976b39574f7025d20d6cbb7", size = 120323 },
 ]
 
 [[package]]
@@ -1026,7 +1026,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "academy-py", specifier = ">=0.1.0" },
+    { name = "academy-py", specifier = ">=0.5.0" },
     { name = "black", marker = "extra == 'docs'" },
     { name = "covdefaults", marker = "extra == 'dev'", specifier = ">=2.2" },
     { name = "coverage", marker = "extra == 'dev'" },

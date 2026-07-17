@@ -31,7 +31,7 @@ import numpy as np
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.handle import Handle
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from pydantic import BaseModel
 from pydantic import Field
@@ -61,9 +61,8 @@ class MockSimAgent(SimulationAgent):
         self,
         westpa_handle: Handle[WestpaAgent],
         restart_dir: Path,
-        logfile: Path | None = None,
     ) -> None:
-        super().__init__(westpa_handle, logfile=logfile)
+        super().__init__(westpa_handle)
         self.restart_dir = Path(restart_dir)
 
     async def agent_on_startup(self) -> None:
@@ -172,7 +171,6 @@ class WestpaConfig(BaseModel):
 async def main() -> None:
     """Run the minimal WESTPA workflow."""
     args = parse_args()
-    init_logging('INFO')
 
     config = WestpaConfig()
 
@@ -213,6 +211,7 @@ async def main() -> None:
         async with await Manager.from_exchange_factory(
             factory=create_exchange_factory(args.exchange),
             executors=ThreadPoolExecutor(),
+            log_config=recommended_logging('INFO'),
         ) as manager:
             await run_westpa_workflow(
                 manager=manager,

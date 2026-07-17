@@ -26,7 +26,7 @@ from academy.agent import loop
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.handle import Handle
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from pydantic import BaseModel
 from pydantic import Field
@@ -339,7 +339,6 @@ class DeepDriveWeConfig(BaseModel):
 async def main() -> None:
     """Run the main function."""
     args = parse_args()
-    init_logging('INFO')
 
     # Load the configuration
     config = DeepDriveWeConfig()
@@ -347,6 +346,7 @@ async def main() -> None:
     async with await Manager.from_exchange_factory(
         factory=create_exchange_factory(args.exchange),
         executors=ThreadPoolExecutor(),
+        log_config=recommended_logging('INFO'),
     ) as manager:
         # Register the agents with the manager (this will create the
         # mailboxes for the agents).
