@@ -15,7 +15,7 @@ from typing import Protocol
 from typing import TypeVar
 
 import numpy as np
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel as _BaseModel
 from pydantic import Field
 from pydantic import field_validator
