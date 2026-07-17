@@ -121,9 +121,8 @@ class OpenMMSimAgent(SimulationAgent):
         westpa_handle: Handle[WestpaAgent],
         sim_config: SimulationConfig,
         output_dir: Path,
-        logfile: Path | None = None,
     ) -> None:
-        super().__init__(westpa_handle, logfile=logfile)
+        super().__init__(westpa_handle)
         self.sim_config = sim_config
         self.output_dir = output_dir
 
