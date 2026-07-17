@@ -98,7 +98,7 @@ Configures where agents run:
 2. **Avoid blocking calls in async methods** — use `await self.agent_run_sync(blocking_fn)` to run blocking code in a thread.
 3. **Beware circular startup requests** — agents awaiting each other's startup callbacks will deadlock.
 4. **Use `asyncio.Task` for concurrent action invocation** — don't `await` multiple handles sequentially if you want parallelism; create tasks.
-5. **Configure worker logging explicitly** — the Manager doesn't auto-configure logging on workers; pass an `initializer` to the executor.
+5. **Configure logging on the Manager** — pass `log_config=recommended_logging(...)` to `Manager.from_exchange_factory()`; it propagates to every agent the Manager launches, including remote workers. (In academy < 0.5 you instead called the removed `init_logging()` and passed an executor `initializer`.)
 
 ## Examples
 
@@ -108,10 +108,10 @@ State is initialized in `agent_on_startup()`, not `__init__`. Actions are invoke
 ```python
 from academy.agent import action, Agent
 from academy.exchange import LocalExchangeFactory
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from concurrent.futures import ThreadPoolExecutor
-import asyncio, logging
+import asyncio
 
 class Counter(Agent):
     count: int
@@ -128,10 +128,10 @@ class Counter(Agent):
         return self.count
 
 async def main() -> None:
-    init_logging(logging.INFO)
     async with await Manager.from_exchange_factory(
         factory=LocalExchangeFactory(),
         executors=ThreadPoolExecutor(),
+        log_config=recommended_logging('INFO'),
     ) as manager:
         agent = await manager.launch(Counter)
         await agent.increment()
@@ -204,25 +204,26 @@ async with await Manager.from_exchange_factory(...) as manager:
 
 ### Example 4: Distributed Execution with HTTP Exchange (examples/04-execution)
 Use `spawn_http_exchange` + `ProcessPoolExecutor` to run agents in separate processes.
-Pass `initializer=init_logging` so worker processes get logging configured.
+The Manager's `log_config` propagates to those worker processes, so no
+executor `initializer` is needed for logging.
 
 ```python
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from academy.exchange.cloud import spawn_http_exchange
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 
 async def main() -> None:
     with spawn_http_exchange('localhost', 5346) as factory:
         mp_context = multiprocessing.get_context('spawn')
         executor = ProcessPoolExecutor(
             max_workers=3,
-            initializer=init_logging,   # configure logging on workers
             mp_context=mp_context,
         )
         async with await Manager.from_exchange_factory(
             factory=factory,
             executors=executor,
+            log_config=recommended_logging('INFO'),  # propagates to workers
         ) as manager:
             lowerer = await manager.launch(Lowerer)
             reverser = await manager.launch(Reverser)
@@ -324,7 +325,7 @@ academy/
 │   ├── runtime.py      # Agent runtime
 │   ├── exchange/       # LocalExchangeFactory, RedisExchangeFactory, etc.
 │   ├── message.py      # Message types
-│   └── logging.py      # init_logging()
+│   └── logging/        # LogConfig, recommended_logging()
 ├── docs/               # MkDocs documentation
 ├── examples/           # Runnable examples (01-actor-client through 08-discussion)
 └── tests/
