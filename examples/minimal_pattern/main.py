@@ -18,11 +18,13 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.handle import Handle
@@ -307,7 +309,7 @@ def parse_args() -> argparse.Namespace:
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory based on the factory type."""
     if exchange_type == 'local':
         return LocalExchangeFactory()

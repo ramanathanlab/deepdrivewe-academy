@@ -25,7 +25,9 @@ import signal
 from argparse import ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.logging.recommended import recommended_logging
@@ -44,7 +46,7 @@ EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
