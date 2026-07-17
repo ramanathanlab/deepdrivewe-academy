@@ -417,9 +417,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
                 sim_agent_type,
                 registration=reg,
                 args=(westpa_handle,),
-                kwargs={
-                    **(sim_agent_kwargs or {}),
-                },
+                kwargs=sim_agent_kwargs or {},
                 executor=sim_executor,
             )
             for reg in reg_sims
