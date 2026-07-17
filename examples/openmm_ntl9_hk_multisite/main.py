@@ -26,10 +26,12 @@ from collections.abc import MutableMapping
 from concurrent.futures import Executor
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from workflow import ExperimentSettings
 from workflow import HuberKimWestpaAgent
@@ -46,7 +48,7 @@ EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
@@ -123,8 +125,6 @@ async def main() -> None:
     cfg = ExperimentSettings.from_yaml(args.config)
     cfg.dump_yaml(cfg.output_dir / 'params.yaml')
 
-    init_logging('INFO', logfile=cfg.output_dir / 'runtime.log')
-
     # Seed ensemble for the orchestrator. This determines how many
     # sim agents to launch (one per initial walker). Checkpoint
     # resume happens on the inference host in agent_on_startup.
@@ -149,6 +149,10 @@ async def main() -> None:
             factory=create_exchange_factory(args.exchange),
             executors=executors,
             default_executor='sim_executor',
+            log_config=recommended_logging(
+                'INFO',
+                logfile=cfg.output_dir / 'runtime.log',
+            ),
         ) as manager:
             await run_westpa_workflow(
                 manager=manager,
@@ -167,7 +171,6 @@ async def main() -> None:
                 },
                 sim_executor='sim_executor',
                 westpa_executor='westpa_executor',
-                logfile=cfg.output_dir / 'runtime.log',
             )
     finally:
         for ex in executors.values():

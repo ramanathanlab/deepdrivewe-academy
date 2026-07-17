@@ -339,7 +339,11 @@ class BasisStates(BaseModel):
         """Return the basis state at the specified index."""
         return self.basis_states[idx]
 
-    def __iter__(self) -> Iterator[SimMetadata]:
+    # Intentionally override pydantic's field-iterating ``__iter__`` to
+    # give ``BasisStates`` sequence semantics over its basis states
+    # (paired with ``__len__``/``__getitem__``). The narrower return type
+    # is a deliberate LSP deviation, not a bug.
+    def __iter__(self) -> Iterator[SimMetadata]:  # type: ignore[override]
         """Return an iterator over the basis states."""
         return iter(self.basis_states)
 

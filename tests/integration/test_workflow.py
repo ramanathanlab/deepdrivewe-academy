@@ -18,10 +18,12 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+from typing import cast
 
 import numpy as np
 import pytest
 from academy.exchange.local import LocalExchangeFactory
+from academy.handle import Handle
 from academy.manager import Manager
 
 from deepdrivewe.api import BasisStates
@@ -149,7 +151,10 @@ class TestDispatchRoundRobin:
             )
             for i in range(7)
         ]
-        await dispatch_round_robin(handles, sims)
+        await dispatch_round_robin(
+            cast('list[Handle[SimulationAgent]]', handles),
+            sims,
+        )
         # 7 sims across 3 handles -> [3, 2, 2]
         assert handles[0].calls == [0, 3, 6]
         assert handles[1].calls == [1, 4]
@@ -167,7 +172,10 @@ class TestDispatchRoundRobin:
             )
             for i in range(2)
         ]
-        await dispatch_round_robin(handles, sims)
+        await dispatch_round_robin(
+            cast('list[Handle[SimulationAgent]]', handles),
+            sims,
+        )
         assert handles[0].calls == [0]
         assert handles[1].calls == [1]
         for h in handles[2:]:
