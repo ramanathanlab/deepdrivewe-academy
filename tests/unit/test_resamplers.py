@@ -15,6 +15,7 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
+from deepdrivewe.api import BasisStates
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.binners import RectilinearBinner
 from deepdrivewe.recyclers import LowRecycler
@@ -293,7 +294,7 @@ class TestHuberKimResampler:
     def test_run_keeps_sims_per_bin(
         self,
         sim_factory: SimFactory,
-        basis_states,
+        basis_states: BasisStates,
     ) -> None:
         resampler = HuberKimResampler(sims_per_bin=3)
         # Pad with -inf to keep all pcoords in a real interior bin.
@@ -321,6 +322,136 @@ class TestHuberKimResampler:
         assert len(new_sims) == 3
         assert _total_weight(new_sims) == pytest.approx(_total_weight(cur))
         assert meta.iteration_id == 1
+
+
+@pytest.mark.unit
+class TestIndexCounterReset:
+    """`Resampler._index_counter` must be reset on every `run()` call.
+
+    `_get_next_sims` assigns continuation walker ids 0..N-1 via `enumerate`,
+    while `_add_new_simulation` (used by split/merge) draws ids from
+    `_index_counter`. Without resetting the counter to N at the start of
+    each iteration, freshly minted walkers collide with continuation
+    walkers (or, across iterations, drift unboundedly upward).
+    """
+
+    def _make_binner(self) -> RectilinearBinner:
+        # One real bin spanning all parent_pcoord values used below.
+        return RectilinearBinner(
+            bins=[-np.inf, 0.0, 1.0, np.inf],
+            bin_target_counts=3,
+        )
+
+    def _make_recycler(self, basis_states: BasisStates) -> LowRecycler:
+        # `target_threshold=-inf` disables recycling for these tests.
+        return LowRecycler(basis_states=basis_states, target_threshold=-np.inf)
+
+    def test_counter_reset_to_n_after_run(
+        self,
+        sim_factory: SimFactory,
+        basis_states: BasisStates,
+    ) -> None:
+        """With a no-op resample, the counter sits exactly at N after run()."""
+        resampler = _IdentityResampler()
+        # Pre-warm the counter to a non-zero state. Without the per-run
+        # reset, `next()` below would yield this pre-warmed value.
+        for _ in range(99):
+            next(resampler._index_counter)
+
+        cur = [
+            sim_factory(
+                weight=0.25,
+                simulation_id=i,
+                pcoord=[[0.0], [0.5]],
+            )
+            for i in range(4)
+        ]
+        np.random.seed(0)
+        random.seed(0)
+        resampler.run(
+            cur,
+            self._make_binner(),
+            self._make_recycler(basis_states),
+        )
+        # _IdentityResampler does not call _add_new_simulation, so the
+        # counter still sits at the reset value: N == len(cur).
+        assert next(resampler._index_counter) == len(cur)
+
+    def test_run_assigns_unique_simulation_ids(
+        self,
+        sim_factory: SimFactory,
+        basis_states: BasisStates,
+    ) -> None:
+        """Continuation and split/merge walker ids never collide.
+
+        `SplitLowResampler` splits one walker and merges two — exactly the
+        scenario where, without the per-iteration counter reset, the
+        freshly minted ids 0, 1 would collide with the surviving
+        continuation ids 0, 1.
+        """
+        resampler = SplitLowResampler(num_resamples=1, n_split=2)
+        binner = self._make_binner()
+        recycler = self._make_recycler(basis_states)
+        cur = [
+            sim_factory(
+                weight=0.25,
+                simulation_id=i,
+                pcoord=[[0.0], [0.5 + i * 0.1]],
+            )
+            for i in range(4)
+        ]
+        np.random.seed(0)
+        random.seed(0)
+        _, new_sims, _ = resampler.run(cur, binner, recycler)
+        sim_ids = [s.simulation_id for s in new_sims]
+        assert len(sim_ids) == len(set(sim_ids)), (
+            f'duplicate simulation_ids: {sim_ids}'
+        )
+        # SplitLow preserves at least one continuation walker (id < N)
+        # and mints at least one new walker (id >= N).
+        assert any(sid < len(cur) for sid in sim_ids)
+        assert any(sid >= len(cur) for sid in sim_ids)
+
+    def test_run_resets_counter_each_iteration(
+        self,
+        sim_factory: SimFactory,
+        basis_states: BasisStates,
+    ) -> None:
+        """Each `run()` call resets the counter afresh.
+
+        Without per-iteration reset, the counter would either grow
+        unboundedly or recycle id=0 every iteration and collide with
+        continuation walkers.
+        """
+        resampler = _IdentityResampler()
+        binner = self._make_binner()
+        recycler = self._make_recycler(basis_states)
+
+        def _make_cur(n: int) -> list[SimMetadata]:
+            return [
+                sim_factory(
+                    weight=1.0 / n,
+                    simulation_id=i,
+                    pcoord=[[0.0], [0.5]],
+                )
+                for i in range(n)
+            ]
+
+        np.random.seed(0)
+        random.seed(0)
+        resampler.run(_make_cur(3), binner, recycler)
+        assert next(resampler._index_counter) == 3
+
+        # Drive the counter forward to detect a missing reset on the
+        # second pass; a non-resetting implementation would yield a
+        # pre-warmed value instead of N for iteration 2.
+        for _ in range(50):
+            next(resampler._index_counter)
+
+        np.random.seed(0)
+        random.seed(0)
+        resampler.run(_make_cur(5), binner, recycler)
+        assert next(resampler._index_counter) == 5
 
 
 @pytest.mark.unit
