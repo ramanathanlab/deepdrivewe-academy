@@ -88,7 +88,7 @@ class InferenceConfig(BaseModel):
     ``SimulationConfig.base_dir`` but for the **inference** endpoint.
     When the WESTPA agent runs on a remote Globus Compute endpoint
     the worker's cwd is not the example directory, so relative paths
-    (checkpointer output, logfile, etc.) would resolve incorrectly.
+    (checkpointer output, etc.) would resolve incorrectly.
     ``base_dir`` is passed to the agent and used to ``os.chdir``
     before any path-dependent work begins.
     """
@@ -313,7 +313,7 @@ class HuberKimWestpaAgent(WestpaAgent):
 
         When running on a remote Globus Compute endpoint the
         worker's cwd is not the example directory, so relative
-        paths (checkpointer output, logfile, etc.) would resolve
+        paths (checkpointer output, etc.) would resolve
         incorrectly. Changing to ``base_dir`` first ensures they
         land in the right place.
 
