@@ -102,8 +102,8 @@ dirs at config-load time -- fail fast on bad input.
 from deepdrivewe.workflows.westpa import SimulationAgent
 
 class MySimAgent(SimulationAgent):
-    def __init__(self, westpa_handle, sim_config, output_dir, logfile=None):
-        super().__init__(westpa_handle, logfile=logfile)
+    def __init__(self, westpa_handle, sim_config, output_dir):
+        super().__init__(westpa_handle)
         self.sim_config = sim_config
         self.output_dir = output_dir
 
@@ -131,9 +131,9 @@ from deepdrivewe.resamplers import HuberKimResampler
 
 class MyWestpaAgent(WestpaAgent):
     def __init__(self, simulation_handles, max_iterations, ensemble,
-                 checkpointer=None, inference_config=None, logfile=None):
+                 checkpointer=None, inference_config=None):
         super().__init__(simulation_handles, max_iterations, ensemble,
-                         checkpointer=checkpointer, logfile=logfile)
+                         checkpointer=checkpointer)
         self.inference_config = inference_config or InferenceConfig()
 
     def run_inference(self, sim_results):
@@ -171,6 +171,12 @@ canonical template. Key structure:
    `os._exit(0)` (Parsl workers survive the main process; normal
    shutdown hangs).
 8. Run `run_westpa_workflow(...)` inside `async with Manager(...)`.
+   Configure logging by passing `log_config=recommended_logging('INFO',
+   logfile=cfg.output_dir / 'runtime.log')` (from
+   `academy.logging.recommended`) to `Manager.from_exchange_factory(...)`.
+   The manager propagates it to every agent it launches -- including
+   remote Parsl/Globus workers -- so agents no longer configure logging
+   themselves.
 
 ### Step 5: Write `config.yaml`
 

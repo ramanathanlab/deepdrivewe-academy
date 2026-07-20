@@ -18,18 +18,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v7
         with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
           python-version: '3.11'
-          cache: pip
 
       - name: Install docs dependencies
-        run: pip install -e '.[docs]'
+        run: uv sync --frozen --extra docs
 
       - name: Build site (strict)
-        run: properdocs build --strict
+        run: uv run properdocs build --strict
 
       - uses: actions/upload-pages-artifact@v5
         with:

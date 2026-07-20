@@ -25,10 +25,12 @@ import signal
 from argparse import ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from parsl.concurrent import ParslPoolExecutor
 from workflow import ExperimentSettings
@@ -39,16 +41,14 @@ from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.workflows.westpa import run_westpa_workflow
 
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
-
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,8 +77,6 @@ async def main() -> None:
     args = parse_args()
     cfg = ExperimentSettings.from_yaml(args.config)
     cfg.dump_yaml(cfg.output_dir / 'params.yaml')
-
-    init_logging('INFO', logfile=cfg.output_dir / 'runtime.log')
 
     # Create Parsl configuration from compute config
     parsl_config = cfg.compute_config.get_parsl_config(
@@ -124,6 +122,10 @@ async def main() -> None:
                 'cpu': ThreadPoolExecutor(max_workers=1),
             },
             default_executor='gpu',
+            log_config=recommended_logging(
+                'INFO',
+                logfile=cfg.output_dir / 'runtime.log',
+            ),
         ) as manager:
             await run_westpa_workflow(
                 manager=manager,
@@ -141,7 +143,6 @@ async def main() -> None:
                 },
                 sim_executor='gpu',
                 westpa_executor='cpu',
-                logfile=cfg.output_dir / 'runtime.log',
             )
     finally:
         gpu_executor.shutdown(wait=False)
