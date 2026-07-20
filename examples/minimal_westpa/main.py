@@ -48,8 +48,6 @@ from deepdrivewe.workflows.westpa import run_westpa_workflow
 from deepdrivewe.workflows.westpa import SimulationAgent
 from deepdrivewe.workflows.westpa import WestpaAgent
 
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
-
 
 class MockSimAgent(SimulationAgent):
     """Simulation agent with stateful RNG.
@@ -154,7 +152,7 @@ def create_exchange_factory(
     """Create the exchange factory based on the type."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 class WestpaConfig(BaseModel):

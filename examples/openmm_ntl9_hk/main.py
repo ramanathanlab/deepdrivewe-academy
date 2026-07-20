@@ -41,8 +41,6 @@ from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.workflows.westpa import run_westpa_workflow
 
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
-
 
 def create_exchange_factory(
     exchange_type: str,
@@ -50,7 +48,7 @@ def create_exchange_factory(
     """Create the exchange factory."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 def parse_args() -> argparse.Namespace:
