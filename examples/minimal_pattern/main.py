@@ -36,8 +36,6 @@ from pydantic import Field
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
 
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
-
 
 class SimulationAgent(Agent):
     """Agent for simulation."""
@@ -321,7 +319,7 @@ def create_exchange_factory(
     # Use the HttpExchangeFactory to connect to the Academy Exchange Cloud.
     # This makes all agents talk to each other through the cloud, which
     # allows them to run on different machines with easier setup.
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 class DeepDriveWeConfig(BaseModel):
