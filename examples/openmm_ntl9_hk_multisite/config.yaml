@@ -56,7 +56,7 @@ target_states:
 # Huber-Kim resampling parameters (inference endpoint).
 # base_dir: absolute path to this example directory on the inference
 # host. The WESTPA agent chdirs here on startup so relative paths
-# (output_dir, checkpoints, logfile) resolve correctly.
+# (output_dir, checkpoints, etc.) resolve correctly.
 # Set to null (or omit) for local / single-site runs.
 inference_config:
   base_dir: /rbstor/abrace/projects/ddwe/src/deepdrivewe-academy/examples/openmm_ntl9_hk_multisite

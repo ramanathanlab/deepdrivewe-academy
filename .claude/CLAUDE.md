@@ -9,6 +9,17 @@ DeepDriveWE-Academy is a Python implementation of [DeepDriveWE](https://pubs.acs
 ## Commands
 
 ### Development Setup
+
+The project supports both [uv](https://docs.astral.sh/uv/) and pip;
+`uv.lock` is committed for reproducible installs.
+
+With uv (recommended):
+```bash
+uv sync --extra dev --extra docs
+uv run pre-commit install
+```
+
+With pip:
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -17,12 +28,17 @@ pip install -e '.[dev,docs]'
 pre-commit install
 ```
 
+Refresh the lock file when `pyproject.toml` dependencies change:
+```bash
+uv lock
+```
+
 Full setup with MD simulation dependencies:
 ```bash
 conda create -n deepdrivewe python=3.10 -y
 conda install omnia::ambertools -y
 conda install conda-forge::openmm==7.7 -y
-pip install -e '.[dev,docs]'
+pip install -e '.[dev,docs]'   # or: uv pip install -e '.[dev,docs]'
 ```
 
 ### Testing & Linting

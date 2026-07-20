@@ -5,8 +5,24 @@ environment, run the test suite, and build the documentation locally.
 
 ## Development Setup
 
-Create a virtual environment and install all development and
-documentation dependencies:
+The project supports both [uv](https://docs.astral.sh/uv/) and pip.
+A pinned `uv.lock` is committed for reproducible installs.
+
+### With uv (recommended)
+
+```bash
+git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
+cd deepdrivewe-academy
+uv sync --extra dev --extra docs
+uv run pre-commit install
+```
+
+`uv sync` creates a `.venv/` in the repo, installs the project in
+editable mode, and resolves dependencies from `uv.lock`. Activate the
+environment with `source .venv/bin/activate`, or prefix commands with
+`uv run` (e.g. `uv run pytest`).
+
+### With pip
 
 ```bash
 git clone git@github.com:ramanathanlab/deepdrivewe-academy.git
@@ -18,17 +34,29 @@ pip install -e '.[dev,docs]'
 pre-commit install
 ```
 
+### Updating the lock file
+
+Whenever a dependency in `pyproject.toml` changes, regenerate
+`uv.lock` and commit it together with the change:
+
+```bash
+uv lock
+```
+
+Use `uv lock --upgrade` to refresh transitive pins without changing
+`pyproject.toml`.
+
 ## Running Tests
 
 ```bash
-# Run the full test suite with coverage
-pytest
+# Full test suite with coverage
+uv run pytest                # or: pytest
 
-# Run a single test
-pytest tests/path_to_test.py::test_name
+# Single test
+uv run pytest tests/path_to_test.py::test_name
 
-# Run via tox (isolated environment)
-tox -e py310
+# Via tox (isolated environment)
+uv run tox -e py310          # or: tox -e py310
 ```
 
 ## Linting and Type Checking
@@ -38,12 +66,12 @@ also run them manually:
 
 ```bash
 # Run all pre-commit hooks
-pre-commit run --all-files
+uv run pre-commit run --all-files   # or: pre-commit run --all-files
 
 # Individual tools
-ruff check .         # lint
-ruff format .        # format
-mypy deepdrivewe/    # type check
+uv run ruff check .         # lint
+uv run ruff format .        # format
+uv run mypy deepdrivewe/    # type check
 ```
 
 ## Building the Documentation
@@ -54,14 +82,16 @@ and the Material theme. API reference pages are auto-generated from
 docstrings.
 
 ```bash
-# Install docs dependencies (included in dev setup above)
-pip install -e '.[dev,docs]'
+# uv
+uv sync --extra docs
+uv run properdocs serve
 
-# Live preview with hot reload
+# pip
+pip install -e '.[dev,docs]'
 properdocs serve
 
 # Production build (strict mode)
-properdocs build --strict
+uv run properdocs build --strict   # or: properdocs build --strict
 ```
 
 Then open <http://localhost:8000> in your browser to preview.

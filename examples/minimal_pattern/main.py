@@ -18,23 +18,23 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.handle import Handle
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from pydantic import BaseModel
 from pydantic import Field
 
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
-
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
 
 
 class SimulationAgent(Agent):
@@ -307,7 +307,7 @@ def parse_args() -> argparse.Namespace:
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory based on the factory type."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
@@ -319,7 +319,7 @@ def create_exchange_factory(
     # Use the HttpExchangeFactory to connect to the Academy Exchange Cloud.
     # This makes all agents talk to each other through the cloud, which
     # allows them to run on different machines with easier setup.
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 class DeepDriveWeConfig(BaseModel):
@@ -339,7 +339,6 @@ class DeepDriveWeConfig(BaseModel):
 async def main() -> None:
     """Run the main function."""
     args = parse_args()
-    init_logging('INFO')
 
     # Load the configuration
     config = DeepDriveWeConfig()
@@ -347,6 +346,7 @@ async def main() -> None:
     async with await Manager.from_exchange_factory(
         factory=create_exchange_factory(args.exchange),
         executors=ThreadPoolExecutor(),
+        log_config=recommended_logging('INFO'),
     ) as manager:
         # Register the agents with the manager (this will create the
         # mailboxes for the agents).
