@@ -47,6 +47,12 @@ class Resampler(ABC):
         # Get the next iteration of simulation metadata
         next_sims = self._get_next_sims(cur_sims)
 
+        # _get_next_sims assigns simulation_id = 0..N-1 via enumerate.
+        # Reset the counter so _add_new_simulation (used by split/merge)
+        # starts at N, preventing ID collisions between continuation
+        # walkers and any new walkers created by resampling.
+        self._index_counter = itertools.count(len(next_sims))
+
         # Recycle the current iteration
         cur_sims, next_sims = recycler.recycle_simulations(cur_sims, next_sims)
 
@@ -67,15 +73,6 @@ class Resampler(ABC):
 
             # Add the resampled simulations to the new simulations
             new_sims.extend(resampled_sims)
-
-        # Renumber simulation_id sequentially now that splitting and
-        # merging are done. _get_next_sims and _add_new_simulation
-        # assign ids independently (positional index vs. a running
-        # counter), so ids can collide across the two sources; this
-        # final pass guarantees uniqueness within the iteration since
-        # simulation_id determines each walker's output directory.
-        for idx, sim in enumerate(new_sims):
-            sim.simulation_id = idx
 
         return cur_sims, new_sims, metadata
 

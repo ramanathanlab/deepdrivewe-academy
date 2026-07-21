@@ -1,9 +1,10 @@
+"""DeepDriveWE training/inference agents and workflow launcher."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import pickle
-
 from abc import ABC
 from abc import abstractmethod
 from pathlib import Path
@@ -13,20 +14,21 @@ from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
 from academy.handle import Handle
-from academy.logging import init_logging
 from academy.manager import Manager
 
 from deepdrivewe.api import BasisStates
 from deepdrivewe.api import IterationMetadata
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
-from deepdrivewe.api import TrainResult
 from deepdrivewe.api import TargetState
+from deepdrivewe.api import TrainResult
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
 from deepdrivewe.utils import wait_for_file
-
-from deepdrivewe.workflows.westpa import SimulationAgent, WestpaAgent, dispatch_round_robin, run_westpa_workflow
+from deepdrivewe.workflows.westpa import dispatch_round_robin
+from deepdrivewe.workflows.westpa import run_westpa_workflow
+from deepdrivewe.workflows.westpa import SimulationAgent
+from deepdrivewe.workflows.westpa import WestpaAgent
 
 
 class TrainingAgent(Agent, ABC):
@@ -39,20 +41,9 @@ class TrainingAgent(Agent, ABC):
     The ``train`` action offloads ``run_training`` to a thread
     pool via ``agent_run_sync`` since training is typically
     blocking, and returns the result directly to the caller.
-
-    Parameters
-    ----------
-    logfile : Path, optional
-        Log file path. ``agent_on_startup`` calls
-        ``init_logging`` so workers in separate processes get
-        logging configured.
     """
 
     logger: logging.Logger
-
-    def __init__(self, logfile: Path | None = None) -> None:
-        super().__init__()
-        self.logfile = logfile
 
     async def agent_on_startup(self) -> None:
         """Initialize the agent.
@@ -60,9 +51,11 @@ class TrainingAgent(Agent, ABC):
         Override to add custom startup logic (e.g., loading a
         model). Always call ``await super().agent_on_startup()``
         first.
+
+        Logging is configured by the ``Manager`` via its
+        ``log_config`` and propagates to every agent it launches,
+        including those in remote worker processes.
         """
-        if self.logfile is not None:
-            init_logging('INFO', logfile=self.logfile)
         self.logger = logging.getLogger(type(self).__name__)
         self.logger.info('started')
 
@@ -121,20 +114,9 @@ class InferenceAgent(Agent, ABC):
     The ``infer`` action offloads ``run_inference`` to a thread
     pool via ``agent_run_sync`` since inference is typically
     blocking, and returns the result directly to the caller.
-
-    Parameters
-    ----------
-    logfile : Path, optional
-        Log file path. ``agent_on_startup`` calls
-        ``init_logging`` so workers in separate processes get
-        logging configured.
     """
 
     logger: logging.Logger
-
-    def __init__(self, logfile: Path | None = None) -> None:
-        super().__init__()
-        self.logfile = logfile
 
     async def agent_on_startup(self) -> None:
         """Initialize the agent.
@@ -142,9 +124,11 @@ class InferenceAgent(Agent, ABC):
         Override to add custom startup logic (e.g., loading a
         model). Always call ``await super().agent_on_startup()``
         first.
+
+        Logging is configured by the ``Manager`` via its
+        ``log_config`` and propagates to every agent it launches,
+        including those in remote worker processes.
         """
-        if self.logfile is not None:
-            init_logging('INFO', logfile=self.logfile)
         self.logger = logging.getLogger(type(self).__name__)
         self.logger.info('started')
 
@@ -232,18 +216,22 @@ class DDWEAgent(WestpaAgent, ABC):
     _pending_train: asyncio.Task[TrainResult] | None
 
     def __init__(
-            self,
-            simulation_handles: list[Handle[SimulationAgent]],
-            training_handle: Handle[TrainingAgent],
-            inference_handle: Handle[InferenceAgent],
-            max_iterations: int,
-            ensemble: WeightedEnsemble,
-            checkpointer: EnsembleCheckpointer | None = None,
-            logfile: Path | None = None,
-            use_stale_model: bool = False,
-            output_dir: Path = Path('ddwe_output'),
+        self,
+        simulation_handles: list[Handle[SimulationAgent]],
+        training_handle: Handle[TrainingAgent],
+        inference_handle: Handle[InferenceAgent],
+        max_iterations: int,
+        ensemble: WeightedEnsemble,
+        checkpointer: EnsembleCheckpointer | None = None,
+        use_stale_model: bool = False,
+        output_dir: Path = Path('ddwe_output'),
     ) -> None:
-        super().__init__(simulation_handles, max_iterations, ensemble, checkpointer, logfile)
+        super().__init__(
+            simulation_handles,
+            max_iterations,
+            ensemble,
+            checkpointer,
+        )
         self.training_handle = training_handle
         self.inference_handle = inference_handle
         self.use_stale_model = use_stale_model
@@ -276,18 +264,36 @@ class DDWEAgent(WestpaAgent, ABC):
         metadata: IterationMetadata,
         shutdown: asyncio.Event,
     ) -> None:
+        """Advance the ensemble, checkpoint, and dispatch the next round.
+
+        Applies the resampled iteration to the ensemble, saves a
+        checkpoint (if configured), and either shuts down once
+        ``max_iterations`` is reached or dispatches the next
+        iteration's simulations round-robin across the sim agents.
+
+        Parameters
+        ----------
+        cur_sims : list[SimMetadata]
+            The current iteration's simulations.
+        next_sims : list[SimMetadata]
+            The next iteration's simulations produced by resampling.
+        metadata : IterationMetadata
+            Metadata for the completed iteration.
+        shutdown : asyncio.Event
+            Event set to stop the run loop at ``max_iterations``.
+        """
         self.ensemble.advance_iteration(
-                cur_sims=cur_sims,
-                next_sims=next_sims,
-                metadata=metadata,
-            )
+            cur_sims=cur_sims,
+            next_sims=next_sims,
+            metadata=metadata,
+        )
         if self.checkpointer is not None:
             self.checkpointer.save(self.ensemble)
 
         self.logger.info(
             f'iteration {self.iteration} complete. '
             f'{len(next_sims)} walkers next.',
-            )
+        )
 
         if self.iteration >= self.max_iterations:
             self.logger.info(
@@ -348,13 +354,15 @@ class DDWEAgent(WestpaAgent, ABC):
                     self.training_handle.train(batch_path),
                 )
 
-                cur_sims, next_sims, metadata = (
-                    await self.inference_handle.infer(
-                        batch_path,
-                        self._train_output,
-                        self.basis_states,
-                        self.target_states,
-                    )
+                (
+                    cur_sims,
+                    next_sims,
+                    metadata,
+                ) = await self.inference_handle.infer(
+                    batch_path,
+                    self._train_output,
+                    self.basis_states,
+                    self.target_states,
                 )
             else:  # Sequential: train first, then infer
                 self.logger.info(
@@ -373,13 +381,15 @@ class DDWEAgent(WestpaAgent, ABC):
                 )
 
                 # Run inference/resampling on the inference agent
-                cur_sims, next_sims, metadata = (
-                    await self.inference_handle.infer(
-                        batch_path,
-                        self._train_output,
-                        self.basis_states,
-                        self.target_states,
-                    )
+                (
+                    cur_sims,
+                    next_sims,
+                    metadata,
+                ) = await self.inference_handle.infer(
+                    batch_path,
+                    self._train_output,
+                    self.basis_states,
+                    self.target_states,
                 )
 
             # Update ensemble state and checkpoint
@@ -387,7 +397,7 @@ class DDWEAgent(WestpaAgent, ABC):
 
 
 async def run_ddwe_workflow(  # noqa: PLR0913
-    manager: Manager,
+    manager: Manager[Any],
     sim_agent_type: type[SimulationAgent],
     training_agent_type: type[TrainingAgent],
     inference_agent_type: type[InferenceAgent],
@@ -403,7 +413,6 @@ async def run_ddwe_workflow(  # noqa: PLR0913
     training_executor: str | None = None,
     inference_executor: str | None = None,
     ddwe_executor: str | None = None,
-    logfile: Path | None = None,
     num_sim_agents: int | None = None,
 ) -> None:
     """Run a DDWE workflow with user-defined agent types.
@@ -447,10 +456,14 @@ async def run_ddwe_workflow(  # noqa: PLR0913
         Named executor for the inference agent.
     ddwe_executor : str, optional
         Named executor for the DDWE orchestrator agent.
-    logfile : Path, optional
-        Log file path passed to each agent.
     num_sim_agents : int, optional
         Number of simulation agents to launch.
+
+    Notes
+    -----
+    Configure logging by passing a ``log_config`` (e.g.
+    ``recommended_logging(...)``) when creating the ``manager``;
+    it propagates to every agent, including remote workers.
     """
     # Register training/inference agents and get their handles
     # up front, mirroring how sim_handles is built in
@@ -465,13 +478,13 @@ async def run_ddwe_workflow(  # noqa: PLR0913
         manager.launch(
             training_agent_type,
             registration=reg_training,
-            kwargs={'logfile': logfile, **(training_agent_kwargs or {})},
+            kwargs=training_agent_kwargs,
             executor=training_executor,
         ),
         manager.launch(
             inference_agent_type,
             registration=reg_inference,
-            kwargs={'logfile': logfile, **(inference_agent_kwargs or {})},
+            kwargs=inference_agent_kwargs,
             executor=inference_executor,
         ),
     )
@@ -494,6 +507,5 @@ async def run_ddwe_workflow(  # noqa: PLR0913
         },
         sim_executor=sim_executor,
         westpa_executor=ddwe_executor,
-        logfile=logfile,
         num_sim_agents=num_sim_agents,
     )
