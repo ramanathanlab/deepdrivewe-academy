@@ -5,16 +5,15 @@
 
 ### Features
 
-* add uv support with pinned uv.lock ([240993b](https://github.com/ramanathanlab/deepdrivewe-academy/commit/240993b2004eda33546f92330eb8d5cb85602ddd))
 * add uv support with pinned uv.lock ([a5be309](https://github.com/ramanathanlab/deepdrivewe-academy/commit/a5be30951e74f8d4736cb24483dd829acefb2f5c))
 * migrate to academy-py v0.5 logging API ([7784686](https://github.com/ramanathanlab/deepdrivewe-academy/commit/77846868b77f6f4695d7c0ea157568cf06fcd7d8)), closes [#56](https://github.com/ramanathanlab/deepdrivewe-academy/issues/56)
 
 
 ### Bug Fixes
 
-* enable Academy mypy plugin + migrate to academy-py v0.5 logging ([#56](https://github.com/ramanathanlab/deepdrivewe-academy/issues/56)) ([287577c](https://github.com/ramanathanlab/deepdrivewe-academy/commit/287577c330f2043ac9d6d46a953ece11ddc43155))
 * enable the Academy mypy plugin and fix surfaced type errors ([77f8601](https://github.com/ramanathanlab/deepdrivewe-academy/commit/77f8601227b8ba714bd8c5fe2d5bbf16d983d4f2)), closes [#56](https://github.com/ramanathanlab/deepdrivewe-academy/issues/56)
 * remove unused type: ignore for yaml import ([70d4cc3](https://github.com/ramanathanlab/deepdrivewe-academy/commit/70d4cc3576253efaefe4b88bd097f470d5a9b764))
+* reset resampler index counter after _get_next_sims ([#49](https://github.com/ramanathanlab/deepdrivewe-academy/issues/49)) ([a0f0b6a](https://github.com/ramanathanlab/deepdrivewe-academy/commit/a0f0b6a485b4e2ed19906f320b174ecbe8b54b75))
 * use HttpExchangeFactory default exchange URL in examples ([#61](https://github.com/ramanathanlab/deepdrivewe-academy/issues/61)) ([dd337d6](https://github.com/ramanathanlab/deepdrivewe-academy/commit/dd337d6bac5b9efcca57f26b2ed73e943aad8858)), closes [#58](https://github.com/ramanathanlab/deepdrivewe-academy/issues/58)
 
 
