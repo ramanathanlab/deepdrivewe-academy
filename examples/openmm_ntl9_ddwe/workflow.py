@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
@@ -67,37 +66,6 @@ async def _send_with_retry(
 
 
 HttpExchangeTransport.send = _send_with_retry  # type: ignore[method-assign]
-
-# --- Academy Exchange Timeout Fix ------------------------------------
-
-_original_listen = HttpExchangeTransport.listen
-
-
-async def _listen_with_no_timeout(
-    self: HttpExchangeTransport,
-) -> AsyncIterator[Any]:
-    """Wrap the listen method to use a longer/no read timeout."""
-    # Save the original session timeout
-    original_timeout = None
-    if hasattr(self, '_session') and self._session is not None:
-        original_timeout = self._session.timeout
-
-        # Set a much longer timeout for SSE listening
-        self._session._timeout = aiohttp.ClientTimeout(
-            total=None,
-            sock_read=None,  # No read timeout
-        )
-
-    try:
-        async for message in _original_listen(self):
-            yield message
-    finally:
-        # Restore original timeout
-        if original_timeout is not None and hasattr(self, '_session'):
-            self._session._timeout = original_timeout
-
-
-HttpExchangeTransport.listen = _listen_with_no_timeout  # type: ignore[method-assign, assignment]
 
 
 # --- Configuration ---------------------------------------------------
