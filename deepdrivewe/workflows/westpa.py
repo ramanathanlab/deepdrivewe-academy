@@ -43,12 +43,14 @@ import asyncio
 import logging
 from abc import ABC
 from abc import abstractmethod
+from pathlib import Path
 from typing import Any
 
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
 from academy.handle import Handle
+from academy.logging import init_logging
 from academy.manager import Manager
 
 from deepdrivewe.api import BasisStates
@@ -97,9 +99,11 @@ class SimulationAgent(Agent, ABC):
     def __init__(
         self,
         westpa_handle: Handle[WestpaAgent],
+        logfile: Path | None = None,
     ) -> None:
         super().__init__()
         self.westpa_handle = westpa_handle
+        self.logfile = logfile
 
     async def agent_on_startup(self) -> None:
         """Initialize the agent.
@@ -107,11 +111,9 @@ class SimulationAgent(Agent, ABC):
         Override to add custom startup logic (e.g., loading a
         model). Always call ``await super().agent_on_startup()``
         first.
-
-        Logging is configured by the ``Manager`` via its
-        ``log_config`` and propagates to every agent it launches,
-        including those in remote worker processes.
         """
+        if self.logfile is not None:
+            init_logging('INFO', logfile=self.logfile)
         self.logger = logging.getLogger(type(self).__name__)
         self.logger.info('started')
 
@@ -199,12 +201,14 @@ class WestpaAgent(Agent, ABC):
         max_iterations: int,
         ensemble: WeightedEnsemble,
         checkpointer: EnsembleCheckpointer | None = None,
+        logfile: Path | None = None,
     ) -> None:
         super().__init__()
         self.simulation_handles = simulation_handles
         self.max_iterations = max_iterations
         self.ensemble = ensemble
         self.checkpointer = checkpointer
+        self.logfile = logfile
 
     @property
     def iteration(self) -> int:
@@ -226,11 +230,9 @@ class WestpaAgent(Agent, ABC):
 
         Override to add custom startup logic. Always call
         ``await super().agent_on_startup()`` first.
-
-        Logging is configured by the ``Manager`` via its
-        ``log_config`` and propagates to every agent it launches,
-        including those in remote worker processes.
         """
+        if self.logfile is not None:
+            init_logging('INFO', logfile=self.logfile)
         self.logger = logging.getLogger(type(self).__name__)
         self._batch = []
         self._batch_ready = asyncio.Event()
@@ -282,7 +284,7 @@ class WestpaAgent(Agent, ABC):
             self._batch_ready.set()
 
     @loop
-    async def run_westpa(self, shutdown: asyncio.Event) -> None:
+    async def run(self, shutdown: asyncio.Event) -> None:
         """Run the WESTPA iteration loop."""
         while not shutdown.is_set():
             await self._batch_ready.wait()
@@ -331,7 +333,7 @@ class WestpaAgent(Agent, ABC):
 
 
 async def run_westpa_workflow(  # noqa: PLR0913
-    manager: Manager[Any],
+    manager: Manager,
     sim_agent_type: type[SimulationAgent],
     westpa_agent_type: type[WestpaAgent],
     max_iterations: int,
@@ -341,6 +343,8 @@ async def run_westpa_workflow(  # noqa: PLR0913
     westpa_agent_kwargs: dict[str, Any] | None = None,
     sim_executor: str | None = None,
     westpa_executor: str | None = None,
+    logfile: Path | None = None,
+    num_sim_agents: int | None = None, 
 ) -> None:
     """Run a WESTPA workflow with user-defined agent types.
 
@@ -354,9 +358,6 @@ async def run_westpa_workflow(  # noqa: PLR0913
     ----------
     manager : Manager
         The Academy manager (within ``async with`` context).
-        Configure logging by passing a ``log_config`` (e.g.
-        ``recommended_logging(...)``) when creating the manager;
-        it propagates to every agent, including remote workers.
     sim_agent_type : type[SimulationAgent]
         Concrete ``SimulationAgent`` subclass that implements
         ``run_simulation``.
@@ -380,11 +381,17 @@ async def run_westpa_workflow(  # noqa: PLR0913
         Named executor for simulation agents (e.g., GPU).
     westpa_executor : str, optional
         Named executor for the WESTPA agent (e.g., CPU).
+    logfile : Path, optional
+        Log file path passed to each agent. Agents call
+        ``init_logging`` in ``agent_on_startup`` so that
+        workers in separate processes get logging configured.
     """
     initial_sims = ensemble.next_sims
+
     # TODO: Generalize this so we don't have to assume one agent per sim.
-    # This is the case were we reuse the same hardware for multiple sims.
-    num_agents = len(initial_sims)
+    # This is the case were we reuse the same hardware for multiple sims. 
+    # Instead... raise errors if num_sim_agents =/= # Sim GPUs (DONE?)... 
+    num_agents = len(initial_sims) if num_sim_agents is None else num_sim_agents
 
     # Register agents with the manager
     reg_westpa = await manager.register_agent(westpa_agent_type)
@@ -397,6 +404,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
     sim_handles = [manager.get_handle(reg) for reg in reg_sims]
 
     # Launch the WestpaAgent
+    # TODO: (FOR DDWE) will need training/inference handles
     westpa_handle = await manager.launch(
         westpa_agent_type,
         registration=reg_westpa,
@@ -405,6 +413,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
             'max_iterations': max_iterations,
             'ensemble': ensemble,
             'checkpointer': checkpointer,
+            'logfile': logfile,
             **(westpa_agent_kwargs or {}),
         },
         executor=westpa_executor,
@@ -417,7 +426,10 @@ async def run_westpa_workflow(  # noqa: PLR0913
                 sim_agent_type,
                 registration=reg,
                 args=(westpa_handle,),
-                kwargs=sim_agent_kwargs,
+                kwargs={
+                    'logfile': logfile,
+                    **(sim_agent_kwargs or {}),
+                },
                 executor=sim_executor,
             )
             for reg in reg_sims

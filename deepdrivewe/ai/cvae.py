@@ -58,7 +58,7 @@ class ConvolutionalVAEConfig(BaseModel):
         description='The prefetch factor for the data loader.',
     )
     batch_size: int = Field(
-        default=64,
+        default=64, 
         description='The batch size for training.',
     )
     inference_batch_size: int = Field(
