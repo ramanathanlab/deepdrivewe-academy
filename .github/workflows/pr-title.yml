@@ -1,0 +1,42 @@
+name: PR Title
+
+# Ensures every PR into `develop` has a Conventional Commit title.
+#
+# PRs are squash-merged into `develop`, so the PR title becomes the squashed
+# commit's subject — and that subject is the only text release-please sees
+# when it later builds the changelog from `main`. A non-conventional title
+# (e.g. "Feature/34 tests") makes the change invisible to the changelog, so
+# we reject it at PR time.
+
+on:
+  pull_request_target:
+    branches: [develop]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Keep in sync with the Conventional Commit types release-please
+          # recognizes (see the Releases table in .claude/CLAUDE.md).
+          types: |
+            feat
+            fix
+            perf
+            docs
+            test
+            refactor
+            style
+            chore
+            ci
