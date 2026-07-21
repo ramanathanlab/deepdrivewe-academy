@@ -321,8 +321,13 @@ class ContactMapCollector(Collector):
             The contact maps from the simulation as a ragged array
             shaped as (n_frames, *).
         """
-        # Collect the contact maps in a ragged numpy array
-        contact_maps = np.array(self._contact_maps, dtype=object)
+        # Collect the contact maps in a ragged numpy array. Built
+        # explicitly (rather than np.array(list, dtype=object)) since
+        # numpy collapses the array to 2D instead of staying ragged
+        # when every frame happens to have the same contact count.
+        contact_maps = np.empty(len(self._contact_maps), dtype=object)
+        for i, contact_map in enumerate(self._contact_maps):
+            contact_maps[i] = contact_map
 
         return contact_maps
 
@@ -958,10 +963,15 @@ class ContactMapRMSDReporter(OpenMMReporter):
             for x in zip(self._rows, self._cols, strict=False)
         ]
 
-        # Collect the contact maps in a ragged numpy array
-        contact_maps = np.array(contact_maps, dtype=object)
+        # Collect the contact maps in a ragged numpy array. Built
+        # explicitly (rather than np.array(list, dtype=object)) since
+        # numpy collapses the array to 2D instead of staying ragged
+        # when every frame happens to have the same contact count.
+        ragged_contact_maps = np.empty(len(contact_maps), dtype=object)
+        for i, contact_map in enumerate(contact_maps):
+            ragged_contact_maps[i] = contact_map
 
-        return contact_maps
+        return ragged_contact_maps
 
     def get_rmsds(self) -> np.ndarray:
         """Get the RMSDs from the simulation.

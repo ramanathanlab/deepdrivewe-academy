@@ -282,7 +282,7 @@ class WestpaAgent(Agent, ABC):
             self._batch_ready.set()
 
     @loop
-    async def run_westpa(self, shutdown: asyncio.Event) -> None:
+    async def run(self, shutdown: asyncio.Event) -> None:
         """Run the WESTPA iteration loop."""
         while not shutdown.is_set():
             await self._batch_ready.wait()
@@ -341,6 +341,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
     westpa_agent_kwargs: dict[str, Any] | None = None,
     sim_executor: str | None = None,
     westpa_executor: str | None = None,
+    num_sim_agents: int | None = None,
 ) -> None:
     """Run a WESTPA workflow with user-defined agent types.
 
@@ -380,11 +381,19 @@ async def run_westpa_workflow(  # noqa: PLR0913
         Named executor for simulation agents (e.g., GPU).
     westpa_executor : str, optional
         Named executor for the WESTPA agent (e.g., CPU).
+    num_sim_agents : int, optional
+        Number of simulation agents to launch. Defaults to one
+        agent per initial simulation. Set this to reuse the same
+        hardware for multiple simulations.
     """
     initial_sims = ensemble.next_sims
+
     # TODO: Generalize this so we don't have to assume one agent per sim.
     # This is the case were we reuse the same hardware for multiple sims.
-    num_agents = len(initial_sims)
+    # Instead... raise errors if num_sim_agents =/= # Sim GPUs (DONE?)...
+    num_agents = (
+        len(initial_sims) if num_sim_agents is None else num_sim_agents
+    )
 
     # Register agents with the manager
     reg_westpa = await manager.register_agent(westpa_agent_type)
@@ -397,6 +406,7 @@ async def run_westpa_workflow(  # noqa: PLR0913
     sim_handles = [manager.get_handle(reg) for reg in reg_sims]
 
     # Launch the WestpaAgent
+    # TODO: (FOR DDWE) will need training/inference handles
     westpa_handle = await manager.launch(
         westpa_agent_type,
         registration=reg_westpa,

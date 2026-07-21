@@ -367,3 +367,4 @@ GitHub.sublime-settings
 
 #IRIS dataset
 *.data
+examples/openmm_ntl9_ddwe/results/
