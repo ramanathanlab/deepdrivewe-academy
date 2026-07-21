@@ -102,6 +102,26 @@ Key domain dependencies: `mdtraj`, `MDAnalysis` (trajectory analysis), `parsl` (
 - **Branch naming**: `feature/<issue>-<slug>`, `bugfix/<issue>-<slug>`, `chore/<issue>-<slug>`
 - A PreToolUse hook redirects `git checkout main` to `develop`
 
+### Merge strategy (critical for releases)
+
+`release-please` only reads `main` and generates the changelog from the
+Conventional Commit **subjects** reachable there since the last tag. The
+merge strategy at each hop is therefore load-bearing:
+
+- **feature/bugfix → `develop`: squash merge.** Each PR collapses to one
+  commit whose subject is the PR title, giving one clean changelog line per
+  PR. This requires the **PR title to be a Conventional Commit** (`feat: …`,
+  `fix: …`) — with a squash merge the PR title is the *only* text
+  release-please ever sees. A non-conventional title (e.g. `Feature/34 tests`)
+  makes the change invisible to the changelog. The [PR Title workflow](../.github/workflows/pr-title.yml)
+  enforces this on every PR to `develop`.
+- **`develop` → `main`: merge commit (`--no-ff`), NEVER squash.** A merge
+  commit preserves develop's individual conventional commits on `main` so
+  release-please can parse them. Squashing this hop collapses every PR into a
+  single non-releasable `release:` subject, so no release PR is opened. If you
+  promote via a GitHub PR, choose **"Create a merge commit"**, not "Squash and
+  merge".
+
 ## Releases
 
 Releases are automated by `release-please` via the [Release workflow](../.github/workflows/release.yml). Every merge to `main` either opens or updates a "release PR". Merging that release PR creates the `vX.Y.Z` tag, a GitHub Release, a `CHANGELOG.md` entry, and bumps the version in `pyproject.toml`.
