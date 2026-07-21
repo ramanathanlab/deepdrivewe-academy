@@ -7,71 +7,75 @@ dill can resolve them on the worker side.
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
-from academy.handle import Handle
+import aiohttp
 import numpy as np
-from parsl import Config
+from academy.exchange.cloud.client import HttpExchangeTransport
 from pydantic import Field
 from pydantic import field_validator
 from sklearn.neighbors import LocalOutlierFactor
-from sympy import And
 
-from deepdrivewe.api import BaseModel, TrainResult
+from deepdrivewe.ai.cvae import ConvolutionalVAE
+from deepdrivewe.ai.cvae import ConvolutionalVAEConfig
+from deepdrivewe.api import BaseModel
 from deepdrivewe.api import BasisStates
 from deepdrivewe.api import IterationMetadata
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
 from deepdrivewe.api import TargetState
-from deepdrivewe.api import WeightedEnsemble
+from deepdrivewe.api import TrainResult
 from deepdrivewe.binners import RectilinearBinner
-from deepdrivewe.checkpoint import EnsembleCheckpointer
-from deepdrivewe.parsl import ComputeConfigTypes, LocalConfig, WorkstationConfig
+from deepdrivewe.parsl import WorkstationConfig
 from deepdrivewe.recyclers import LowRecycler
 from deepdrivewe.resamplers.lof import LOFLowResampler
-from deepdrivewe.workflows.ddwe import TrainingAgent
 from deepdrivewe.workflows.ddwe import InferenceAgent
-from deepdrivewe.workflows.westpa import SimulationAgent
-from deepdrivewe.ai.cvae import ConvolutionalVAE, ConvolutionalVAEConfig
-from examples.openmm_ntl9_hk.workflow import SimulationConfig, RMSDBasisStateInitializer
+from deepdrivewe.workflows.ddwe import TrainingAgent
+from examples.openmm_ntl9_hk.workflow import RMSDBasisStateInitializer
+from examples.openmm_ntl9_hk.workflow import SimulationConfig
 
-# --- Academy Exchange Retry ---------------------------------------------------
-
-import asyncio
-import logging
-import aiohttp
-from academy.exchange.cloud.client import HttpExchangeTransport
+# --- Academy Exchange Retry ------------------------------------------
 
 _original_send = HttpExchangeTransport.send
 
 
-async def _send_with_retry(self, message, _max_retries=5, _base_delay=1.0):
+async def _send_with_retry(
+    self: HttpExchangeTransport,
+    message: Any,
+    _max_retries: int = 5,
+    _base_delay: float = 1.0,
+) -> Any:
+    """Retry ``send`` with exponential backoff on 502/503/504."""
     for attempt in range(_max_retries + 1):
         try:
             return await _original_send(self, message)
         except aiohttp.ClientResponseError as e:
             if e.status in (502, 503, 504) and attempt < _max_retries:
-                delay = _base_delay * (2 ** attempt)
+                delay = _base_delay * (2**attempt)
                 logging.getLogger('academy.exchange').warning(
                     f'Exchange returned {e.status}, '
                     f'retrying in {delay:.1f}s '
-                    f'(attempt {attempt + 1}/{_max_retries})'
+                    f'(attempt {attempt + 1}/{_max_retries})',
                 )
                 await asyncio.sleep(delay)
             else:
                 raise
 
 
-HttpExchangeTransport.send = _send_with_retry
+HttpExchangeTransport.send = _send_with_retry  # type: ignore[method-assign]
 
-# --- Academy Exchange Timeout Fix -----------------------------------------
-
-from academy.exchange.cloud.client import HttpExchangeTransport
+# --- Academy Exchange Timeout Fix ------------------------------------
 
 _original_listen = HttpExchangeTransport.listen
 
 
-async def _listen_with_no_timeout(self):
+async def _listen_with_no_timeout(
+    self: HttpExchangeTransport,
+) -> AsyncIterator[Any]:
     """Wrap the listen method to use a longer/no read timeout."""
     # Save the original session timeout
     original_timeout = None
@@ -93,7 +97,7 @@ async def _listen_with_no_timeout(self):
             self._session._timeout = original_timeout
 
 
-HttpExchangeTransport.listen = _listen_with_no_timeout
+HttpExchangeTransport.listen = _listen_with_no_timeout  # type: ignore[method-assign, assignment]
 
 
 # --- Configuration ---------------------------------------------------
@@ -130,7 +134,7 @@ class InferenceConfig(BaseModel):
         description='Minimum allowed simulation weight.',
     )
     lof_n_neighbors: int = Field(
-        default=20, 
+        default=20,
         description='Number of neighbors for LOF. '
         'Should not exceed sims_per_bin.',
     )
@@ -193,12 +197,12 @@ class ExperimentSettings(BaseModel):
         'simulations instead of blocking them.',
     )
     sim_compute_config: WorkstationConfig = Field(
-        description='GPU config for simulations.'
+        description='GPU config for simulations.',
     )
     ddwe_compute_config: WorkstationConfig = Field(
-        description='GPU config for training and inference.'
+        description='GPU config for training and inference.',
     )
-    
+
     @field_validator('output_dir')
     @classmethod
     def mkdir_validator(cls, value: Path) -> Path:
@@ -210,17 +214,18 @@ class ExperimentSettings(BaseModel):
 
 # --- Agent Subclasses ------------------------------------------------
 
+
 class CVAETrainAgent(TrainingAgent):
     """DDWE training agent using a CVAE."""
 
     def __init__(
         self,
-        cvae_config: ConvolutionalVAEConfig = ConvolutionalVAEConfig(),
+        cvae_config: ConvolutionalVAEConfig | None = None,
         train_config: TrainConfig | None = None,
         output_dir: Path = Path('ddwe_output'),
-        logfile: Path | None = None,
     ) -> None:
-        super().__init__(logfile=logfile)
+        super().__init__()
+        cvae_config = cvae_config or ConvolutionalVAEConfig()
         train_config = train_config or TrainConfig()
         if train_config.config_path is not None:
             cvae_config = ConvolutionalVAEConfig.from_yaml(
@@ -259,7 +264,7 @@ class CVAETrainAgent(TrainingAgent):
 
         # Return the train result
         result = TrainResult(
-            config_path="",
+            config_path=output_dir / 'model',
             checkpoint_path=self.checkpoint_path,
         )
 
@@ -271,13 +276,12 @@ class CVAEInferAgent(InferenceAgent):
 
     def __init__(
         self,
-        cvae_config: ConvolutionalVAEConfig = ConvolutionalVAEConfig(),
+        cvae_config: ConvolutionalVAEConfig | None = None,
         inference_config: InferenceConfig | None = None,
         output_dir: Path = Path('ddwe_output'),
-        logfile: Path | None = None,
     ) -> None:
-        super().__init__(logfile=logfile)
-        self.cvae_config = cvae_config
+        super().__init__()
+        self.cvae_config = cvae_config or ConvolutionalVAEConfig()
         self.inference_config = inference_config or InferenceConfig()
         self.output_dir = output_dir
 
@@ -308,13 +312,16 @@ class CVAEInferAgent(InferenceAgent):
         config = self.inference_config
 
         # Build contact maps and use model for inference
-        contact_maps = np.concatenate([sim.data['contact_maps'] for sim in sim_results],)
+        contact_maps = np.concatenate(
+            [sim.data['contact_maps'] for sim in sim_results],
+        )
 
         contact_maps = [x.astype(np.int16) for x in contact_maps]
 
         cvae_config = self.cvae_config.model_copy(update={'device': 'cuda:0'})
         model = ConvolutionalVAE(cvae_config, train_result.checkpoint_path)
-        z = model.predict(contact_maps) # the latent space coordinates for each simulation
+        # Latent-space coordinates for each simulation
+        z = model.predict(contact_maps)
 
         # Run LOF on the latent space
         clf = LocalOutlierFactor(
@@ -324,9 +331,13 @@ class CVAEInferAgent(InferenceAgent):
 
         # Get the LOF scores
         lof_scores = clf.negative_outlier_factor_
-    
+
         # Add the LOF scores to the last frame of each simulation pcoord
-        for sim, score in zip(cur_sims, lof_scores[-len(cur_sims) :]):
+        for sim, score in zip(
+            cur_sims,
+            lof_scores[-len(cur_sims) :],
+            strict=False,
+        ):
             sim_scores = [-1.0 for _ in range(sim.num_frames)]
             sim_scores[-1] = float(score)
             sim.append_pcoord(sim_scores)
