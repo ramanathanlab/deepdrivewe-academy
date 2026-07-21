@@ -25,32 +25,34 @@ import signal
 from argparse import ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
+import parsl
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
-from academy.logging import init_logging
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
-import parsl
-from parsl.config import Config
 from parsl.concurrent import ParslPoolExecutor
-from deepdrivewe.workflows.ddwe import run_ddwe_workflow
-from deepdrivewe.workflows.ddwe import DDWEAgent
-from workflow import CVAETrainAgent, CVAEInferAgent, ExperimentSettings
-from examples.openmm_ntl9_hk.workflow import OpenMMSimAgent
+from parsl.config import Config
+from workflow import CVAEInferAgent
+from workflow import CVAETrainAgent
+from workflow import ExperimentSettings
 
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
-
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
+from deepdrivewe.workflows.ddwe import DDWEAgent
+from deepdrivewe.workflows.ddwe import run_ddwe_workflow
+from examples.openmm_ntl9_hk.workflow import OpenMMSimAgent
 
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,18 +82,22 @@ async def main() -> None:
     cfg = ExperimentSettings.from_yaml(args.config)
     cfg.dump_yaml(cfg.output_dir / 'params.yaml')
 
-    init_logging('INFO', logfile=cfg.output_dir / 'runtime.log')
-
     # Build one Parsl Config with three labeled executors (sim,
     # train, infer). parsl.load is a per-process singleton, so a
     # single DFK must back all GPU pools. Train and infer each get
     # one dedicated GPU carved from ddwe_compute_config.
     accelerators = cfg.ddwe_compute_config.available_accelerators
     train_cfg = cfg.ddwe_compute_config.model_copy(
-        update={'available_accelerators': [accelerators[0]], 'label': 'train_htex'},
+        update={
+            'available_accelerators': [accelerators[0]],
+            'label': 'train_htex',
+        },
     )
     infer_cfg = cfg.ddwe_compute_config.model_copy(
-        update={'available_accelerators': [accelerators[1]], 'label': 'infer_htex'},
+        update={
+            'available_accelerators': [accelerators[1]],
+            'label': 'infer_htex',
+        },
     )
     run_dir = cfg.output_dir / 'run-info'
     combined_config = Config(
@@ -149,6 +155,10 @@ async def main() -> None:
                 'orchestrator': ThreadPoolExecutor(max_workers=1),
             },
             default_executor='orchestrator',
+            log_config=recommended_logging(
+                'INFO',
+                logfile=cfg.output_dir / 'runtime.log',
+            ),
         ) as manager:
             await run_ddwe_workflow(
                 manager=manager,
@@ -179,8 +189,9 @@ async def main() -> None:
                 training_executor='train',
                 inference_executor='infer',
                 ddwe_executor='orchestrator',
-                logfile=cfg.output_dir / 'runtime.log',
-                num_sim_agents=len(cfg.sim_compute_config.available_accelerators)
+                num_sim_agents=len(
+                    cfg.sim_compute_config.available_accelerators,
+                ),
             )
     finally:
         dfk.cleanup()
