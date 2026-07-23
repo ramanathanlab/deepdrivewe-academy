@@ -2,14 +2,28 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
+from unittest.mock import Mock
 from unittest.mock import patch
 
+import aiohttp
 import pytest
 
+from deepdrivewe.utils import is_transient_error
+from deepdrivewe.utils import retry_async
 from deepdrivewe.utils import retry_on_exception
 from deepdrivewe.utils import wait_for_file
+
+
+def _response_error(status: int) -> aiohttp.ClientResponseError:
+    """Build a ``ClientResponseError`` with the given HTTP status."""
+    return aiohttp.ClientResponseError(
+        request_info=Mock(),
+        history=(),
+        status=status,
+    )
 
 
 @pytest.mark.unit
@@ -112,3 +126,144 @@ class TestWaitForFile:
                 retries=2,
                 delay=0.0,
             )
+
+
+@pytest.mark.unit
+class TestIsTransientError:
+    """Covers the `is_transient_error` predicate."""
+
+    @pytest.mark.parametrize(
+        'exc',
+        (
+            aiohttp.ClientPayloadError(),
+            asyncio.TimeoutError(),
+            TimeoutError(),
+            _response_error(429),
+            _response_error(500),
+            _response_error(502),
+            _response_error(503),
+            _response_error(504),
+        ),
+    )
+    def test_transient(self, exc: BaseException) -> None:
+        assert is_transient_error(exc) is True
+
+    @pytest.mark.parametrize(
+        'exc',
+        (
+            _response_error(400),
+            _response_error(404),
+            _response_error(501),
+            ValueError('nope'),
+            KeyError('nope'),
+        ),
+    )
+    def test_not_transient(self, exc: BaseException) -> None:
+        assert is_transient_error(exc) is False
+
+    def test_cancelled_error_not_transient(self) -> None:
+        # CancelledError is a BaseException; it must never be retried.
+        assert is_transient_error(asyncio.CancelledError()) is False
+
+
+@pytest.mark.unit
+class TestRetryAsync:
+    """Covers the async `retry_async` helper."""
+
+    async def test_returns_first_success_without_sleeping(self) -> None:
+        async def ok() -> int:
+            return 7
+
+        with patch('deepdrivewe.utils.asyncio.sleep') as sleep_mock:
+            assert await retry_async(ok) == 7
+        sleep_mock.assert_not_called()
+
+    async def test_retries_transient_then_succeeds(self) -> None:
+        calls = {'n': 0}
+
+        async def flaky() -> str:
+            calls['n'] += 1
+            if calls['n'] < 3:
+                raise asyncio.TimeoutError
+            return 'done'
+
+        with patch('deepdrivewe.utils.asyncio.sleep') as sleep_mock:
+            result = await retry_async(flaky, retries=5, jitter=0.0)
+        assert result == 'done'
+        assert calls['n'] == 3
+        assert sleep_mock.await_count == 2
+
+    async def test_non_transient_raises_immediately(self) -> None:
+        calls = {'n': 0}
+
+        async def boom() -> None:
+            calls['n'] += 1
+            raise ValueError('fatal')
+
+        with (
+            patch('deepdrivewe.utils.asyncio.sleep') as sleep_mock,
+            pytest.raises(ValueError, match='fatal'),
+        ):
+            await retry_async(boom, retries=5)
+        assert calls['n'] == 1
+        sleep_mock.assert_not_called()
+
+    async def test_raises_after_exhausting_retries(self) -> None:
+        calls = {'n': 0}
+
+        async def always() -> None:
+            calls['n'] += 1
+            raise asyncio.TimeoutError
+
+        with (
+            patch('deepdrivewe.utils.asyncio.sleep'),
+            pytest.raises(asyncio.TimeoutError),
+        ):
+            await retry_async(always, retries=2, jitter=0.0)
+        # 1 initial attempt + 2 retries.
+        assert calls['n'] == 3
+
+    async def test_backoff_is_capped_at_max_delay(self) -> None:
+        delays: list[float] = []
+
+        async def fake_sleep(seconds: float) -> None:
+            delays.append(seconds)
+
+        async def always() -> None:
+            raise asyncio.TimeoutError
+
+        with (
+            patch(
+                'deepdrivewe.utils.asyncio.sleep',
+                side_effect=fake_sleep,
+            ),
+            pytest.raises(asyncio.TimeoutError),
+        ):
+            await retry_async(
+                always,
+                retries=5,
+                base_delay=1.0,
+                max_delay=4.0,
+                jitter=0.0,
+            )
+        # 1, 2, 4, then capped at 4, 4 (no jitter).
+        assert delays == [1.0, 2.0, 4.0, 4.0, 4.0]
+
+    async def test_custom_predicate(self) -> None:
+        calls = {'n': 0}
+
+        async def flaky() -> str:
+            calls['n'] += 1
+            if calls['n'] < 2:
+                raise ValueError('retry me')
+            return 'ok'
+
+        with patch('deepdrivewe.utils.asyncio.sleep'):
+            result = await retry_async(
+                flaky,
+                retries=3,
+                predicate=lambda exc: isinstance(exc, ValueError),
+                jitter=0.0,
+            )
+        assert result == 'ok'
+        assert calls['n'] == 2

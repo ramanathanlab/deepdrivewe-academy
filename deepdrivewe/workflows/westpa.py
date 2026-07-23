@@ -46,7 +46,6 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any
 
-import aiohttp
 from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
@@ -60,7 +59,10 @@ from deepdrivewe.api import SimResult
 from deepdrivewe.api import TargetState
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
+from deepdrivewe.utils import retry_async
 from deepdrivewe.utils import wait_for_file
+
+logger = logging.getLogger(__name__)
 
 
 async def dispatch_round_robin(
@@ -72,24 +74,22 @@ async def dispatch_round_robin(
 
     Retries each send up to ``max_retries`` times on transient errors
     (e.g. exchange timeout or connection drop).
+
+    Notes
+    -----
+    ``simulate`` is not idempotent, so a retry here re-runs the whole
+    simulation when a response is lost. Prefer transport-level retries
+    (see :class:`deepdrivewe.exchange.RetryingHttpExchangeFactory`) for
+    connectivity faults; this guard only backstops the dispatch call.
     """
 
     async def _send(handle: Handle[SimulationAgent], sim: SimMetadata) -> None:
-        for attempt in range(max_retries):
-            try:
-                await handle.simulate(sim)
-                return
-            except Exception as exc:
-                if attempt == max_retries - 1 or not isinstance(
-                    exc,
-                    (
-                        aiohttp.ClientConnectionError,
-                        aiohttp.ClientPayloadError,
-                        asyncio.TimeoutError,
-                    ),
-                ):
-                    raise
-                await asyncio.sleep(2.0**attempt)
+        await retry_async(
+            lambda: handle.simulate(sim),
+            retries=max_retries - 1,
+            base_delay=1.0,
+            logger=logger,
+        )
 
     await asyncio.gather(
         *[_send(handles[i % len(handles)], sim) for i, sim in enumerate(sims)],
