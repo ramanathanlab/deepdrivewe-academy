@@ -7,6 +7,7 @@ dill can resolve them on the worker side.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import MDAnalysis
@@ -21,11 +22,9 @@ from deepdrivewe.api import IterationMetadata
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
 from deepdrivewe.api import TargetState
-from deepdrivewe.api import validate_and_resolve_file
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.binners import RectilinearBinner
 from deepdrivewe.checkpoint import EnsembleCheckpointer
-from deepdrivewe.parsl import ComputeConfigTypes
 from deepdrivewe.recyclers import LowRecycler
 from deepdrivewe.resamplers import HuberKimResampler
 from deepdrivewe.simulation.openmm import ContactMapRMSDReporter
@@ -38,17 +37,33 @@ from deepdrivewe.workflows.westpa import WestpaAgent
 
 
 class SimulationConfig(BaseModel):
-    """Configuration for the OpenMM simulation."""
+    """Configuration for the OpenMM simulation.
 
+    Notes
+    -----
+    The simulation agent changes its working directory to
+    ``base_dir`` on startup, so relative paths (``reference_file``,
+    ``top_file``, etc.) resolve correctly without explicit
+    resolution.
+    """
+
+    base_dir: Path | None = Field(
+        default=None,
+        description=(
+            'Absolute path to the example directory on the sim host. '
+            'The agent chdirs here on startup so relative paths '
+            'resolve correctly.'
+        ),
+    )
     openmm_config: OpenMMConfig = Field(
         description='The configuration for the OpenMM simulation.',
     )
     top_file: Path | None = Field(
         default=None,
-        description='The topology file for the simulation.',
+        description='Topology file path (on the simulation host).',
     )
     reference_file: Path = Field(
-        description='The reference PDB file for RMSD analysis.',
+        description='Reference PDB path (on the simulation host).',
     )
     cutoff_angstrom: float = Field(
         default=8.0,
@@ -63,16 +78,31 @@ class SimulationConfig(BaseModel):
         description='OpenMM atom selection strings.',
     )
 
-    @field_validator('top_file', 'reference_file')
-    @classmethod
-    def resolve_file(cls, value: Path | None) -> Path | None:
-        """Validate and resolve the file path."""
-        return validate_and_resolve_file(value)
-
 
 class InferenceConfig(BaseModel):
-    """Configuration for the resampler."""
+    """Configuration for the resampler.
 
+    Notes
+    -----
+    ``base_dir`` serves the same purpose as
+    ``SimulationConfig.base_dir`` but for the **inference** endpoint.
+    When the WESTPA agent runs on a remote Globus Compute endpoint
+    the worker's cwd is not the example directory, so relative paths
+    (checkpointer output, etc.) would resolve incorrectly.
+    ``base_dir`` is passed to the agent and used to ``os.chdir``
+    before any path-dependent work begins.
+    """
+
+    base_dir: Path | None = Field(
+        default=None,
+        description=(
+            'Absolute path to the example directory on the '
+            'inference host. The WESTPA agent chdirs here on '
+            'startup so relative paths resolve correctly. '
+            'None keeps the worker cwd unchanged (fine for '
+            'local / single-site runs).'
+        ),
+    )
     sims_per_bin: int = Field(
         default=5,
         description='Number of simulations per bin.',
@@ -87,6 +117,37 @@ class InferenceConfig(BaseModel):
     )
 
 
+class GlobusComputeConfig(BaseModel):
+    """Configuration for the remote Globus Compute endpoints.
+
+    Two endpoints are used:
+
+    - ``simulation_endpoint_id`` runs OpenMM simulation agents and
+      should be a GPU-equipped endpoint (e.g. LocalProvider with
+      ``available_accelerators`` set on the engine).
+    - ``inference_endpoint_id`` runs the WESTPA/Huber-Kim resampling
+      agent and only needs a CPU worker. It can point at the same
+      physical host as the simulation endpoint (recommended, so
+      checkpoint/output paths resolve consistently) or at a different
+      host that shares the ``output_dir`` filesystem.
+
+    Both endpoints must be pre-configured and running on their hosts.
+    See the README for deployment instructions.
+    """
+
+    simulation_endpoint_id: str = Field(
+        description='Endpoint UUID for OpenMM simulation agents (GPU).',
+    )
+    inference_endpoint_id: str | None = Field(
+        default=None,
+        description=(
+            'Endpoint UUID for the WESTPA agent (CPU). If omitted, '
+            'the agent runs locally on the orchestrator via a '
+            'ThreadPoolExecutor.'
+        ),
+    )
+
+
 class RMSDBasisStateInitializer(BaseModel):
     """Compute initial pcoords via RMSD to reference."""
 
@@ -97,12 +158,6 @@ class RMSDBasisStateInitializer(BaseModel):
         default='protein and name CA',
         description='MDAnalysis selection for atoms.',
     )
-
-    @field_validator('reference_file')
-    @classmethod
-    def resolve_file(cls, value: Path | None) -> Path | None:
-        """Validate and resolve the file path."""
-        return validate_and_resolve_file(value)
 
     def __call__(self, basis_file: str) -> list[float]:
         """Compute RMSD between basis and reference."""
@@ -118,7 +173,7 @@ class ExperimentSettings(BaseModel):
     """Full experiment configuration (YAML)."""
 
     output_dir: Path = Field(
-        description='Directory to store results.',
+        description='Directory for outputs.',
     )
     num_iterations: int = Field(
         ge=1,
@@ -139,25 +194,14 @@ class ExperimentSettings(BaseModel):
     inference_config: InferenceConfig = Field(
         description='Inference/resampling configuration.',
     )
-    compute_config: ComputeConfigTypes = Field(
-        description='Compute configuration for running simulations.',
-    )
-    num_sim_agents: int | None = Field(
-        default=None,
-        description=(
-            'Number of simulation agents to launch. '
-            'Set to the number of available GPU slots to avoid a '
-            'deadlock when the number of walkers exceeds slot capacity. '
-            'Defaults to one agent per walker (safe only when '
-            'slots >= walkers).'
-        ),
+    globus_compute: GlobusComputeConfig = Field(
+        description='Globus Compute endpoint + exchange settings.',
     )
 
     @field_validator('output_dir')
     @classmethod
     def mkdir_validator(cls, value: Path) -> Path:
-        """Resolve and create the output directory."""
-        value = value.resolve()
+        """Create the orchestrator host output directory."""
         value.mkdir(parents=True, exist_ok=True)
         return value
 
@@ -177,6 +221,26 @@ class OpenMMSimAgent(SimulationAgent):
         super().__init__(westpa_handle)
         self.sim_config = sim_config
         self.output_dir = output_dir
+
+    async def agent_on_startup(self) -> None:
+        """Set the working directory for path resolution on the sim host.
+
+        When running on a remote Globus Compute endpoint the worker's cwd
+        is not the example directory, so relative paths (e.g. checkpoint files,
+        output_dir) would resolve incorrectly. Changing to ``base_dir`` first
+        ensures they land in the right place.
+        """
+        await super().agent_on_startup()
+        if self.sim_config.base_dir is not None:
+            os.chdir(self.sim_config.base_dir)
+            self.logger.info(
+                'Changed simulation working directory to %s',
+                self.sim_config.base_dir,
+            )
+
+        # Create the output directory for simulation results.
+        # The output_dir is relative to the sim host cwd (changed above)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def run_simulation(self, metadata: SimMetadata) -> SimResult:
         """Run an OpenMM simulation."""
@@ -231,6 +295,7 @@ class HuberKimWestpaAgent(WestpaAgent):
         simulation_handles: list[Handle[SimulationAgent]],
         max_iterations: int,
         ensemble: WeightedEnsemble,
+        output_dir: Path,
         checkpointer: EnsembleCheckpointer | None = None,
         inference_config: InferenceConfig | None = None,
     ) -> None:
@@ -241,6 +306,46 @@ class HuberKimWestpaAgent(WestpaAgent):
             checkpointer=checkpointer,
         )
         self.inference_config = inference_config or InferenceConfig()
+        self.output_dir = output_dir
+
+    async def agent_on_startup(self) -> None:
+        """Set the working directory and initialize the checkpointer.
+
+        When running on a remote Globus Compute endpoint the
+        worker's cwd is not the example directory, so relative
+        paths (checkpointer output, etc.) would resolve
+        incorrectly. Changing to ``base_dir`` first ensures they
+        land in the right place.
+
+        The checkpointer is created here (not on the orchestrator)
+        because it writes checkpoints and HDF5 files to paths
+        that must resolve on the inference host.
+        """
+        await super().agent_on_startup()
+
+        if self.inference_config.base_dir is not None:
+            os.chdir(self.inference_config.base_dir)
+            self.logger.info(
+                'Changed inference working directory to %s',
+                self.inference_config.base_dir,
+            )
+
+        # The output_dir is relative to the inference host cwd (changed above)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create the checkpointer on the inference host where the
+        # output_dir path resolves correctly.
+        self.checkpointer = EnsembleCheckpointer(output_dir=self.output_dir)
+
+        # Resume from the latest checkpoint if one exists on this
+        # host.
+        # TODO: On resume the orchestrator still dispatches fresh
+        # initial_sims (from a seed ensemble) which may not match
+        # the checkpoint's next_sims. Full multi-site resume
+        # requires the agent to re-dispatch the correct walkers.
+        checkpoint = self.checkpointer.latest_checkpoint()
+        if checkpoint is not None:
+            self.ensemble = self.checkpointer.load(checkpoint)
 
     def run_inference(
         self,

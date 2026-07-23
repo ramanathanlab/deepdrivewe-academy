@@ -21,7 +21,7 @@ Create a conda environment with OpenMM:
 conda create -n deepdrivewe python=3.11 -y
 conda activate deepdrivewe
 conda install -c conda-forge openmm=8.1
-pip install -e '.[dev]'
+pip install -e '.[dev]'      # or: uv pip install -e '.[dev]'
 ```
 
 ## File Structure
@@ -121,9 +121,8 @@ class OpenMMSimAgent(SimulationAgent):
         westpa_handle: Handle[WestpaAgent],
         sim_config: SimulationConfig,
         output_dir: Path,
-        logfile: Path | None = None,
     ) -> None:
-        super().__init__(westpa_handle, logfile=logfile)
+        super().__init__(westpa_handle)
         self.sim_config = sim_config
         self.output_dir = output_dir
 
@@ -344,3 +343,13 @@ scheduler. See `deepdrivewe.parsl` for supported backends:
       name: local
       max_workers_per_node: 1
     ```
+
+## Next Steps
+
+Once you are comfortable with this single-site example, see the
+[multi-site example][multisite] which extends the same workflow to run
+across multiple hosts — an orchestrator on your laptop, GPU simulations
+on one HPC endpoint, and CPU inference on another — communicating
+through the Academy Exchange Cloud via Globus Compute.
+
+[multisite]: https://github.com/ramanathanlab/deepdrivewe-academy/tree/main/examples/openmm_ntl9_hk_multisite

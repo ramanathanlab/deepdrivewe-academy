@@ -23,13 +23,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+from academy.exchange import ExchangeFactory
 from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
-from academy.logging import init_logging
+from academy.handle import Handle
+from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
 from pydantic import BaseModel
 from pydantic import Field
@@ -44,8 +48,6 @@ from deepdrivewe.workflows.westpa import run_westpa_workflow
 from deepdrivewe.workflows.westpa import SimulationAgent
 from deepdrivewe.workflows.westpa import WestpaAgent
 
-EXCHANGE_ADDRESS = 'https://exchange.academy-agents.org'
-
 
 class MockSimAgent(SimulationAgent):
     """Simulation agent with stateful RNG.
@@ -54,6 +56,14 @@ class MockSimAgent(SimulationAgent):
     expensive state (e.g., an ML model) that persists across
     simulation calls.
     """
+
+    def __init__(
+        self,
+        westpa_handle: Handle[WestpaAgent],
+        restart_dir: Path,
+    ) -> None:
+        super().__init__(westpa_handle)
+        self.restart_dir = Path(restart_dir)
 
     async def agent_on_startup(self) -> None:
         """Initialize the RNG on startup."""
@@ -64,12 +74,20 @@ class MockSimAgent(SimulationAgent):
         self,
         metadata: SimMetadata,
     ) -> SimResult:
-        """Mock simulation: generate a random pcoord."""
+        """Mock simulation: generate a random pcoord.
+
+        A real restart file is materialized on disk so the next
+        iteration's ``wait_for_file`` resolves immediately rather
+        than burning through the (8-retry, 1s base delay) backoff.
+        """
         pcoord_value = float(self.rng.uniform(0.5, 10.0))
         metadata.pcoord = [[pcoord_value]]
-        metadata.restart_file = Path(
-            f'restart/{metadata.iteration_id}/{metadata.simulation_id}.rst',
+        restart_file = (
+            self.restart_dir
+            / f'iter_{metadata.iteration_id}_sim_{metadata.simulation_id}.rst'
         )
+        restart_file.touch()
+        metadata.restart_file = restart_file
         return SimResult(
             data={'pcoord': np.array([[pcoord_value]])},
             metadata=metadata,
@@ -130,11 +148,11 @@ def parse_args() -> argparse.Namespace:
 
 def create_exchange_factory(
     exchange_type: str,
-) -> LocalExchangeFactory | HttpExchangeFactory:
+) -> ExchangeFactory[Any]:
     """Create the exchange factory based on the type."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(url=EXCHANGE_ADDRESS, auth_method='globus')
+    return HttpExchangeFactory(auth_method='globus')
 
 
 class WestpaConfig(BaseModel):
@@ -153,42 +171,56 @@ class WestpaConfig(BaseModel):
 async def main() -> None:
     """Run the minimal WESTPA workflow."""
     args = parse_args()
-    init_logging('INFO')
 
     config = WestpaConfig()
 
-    # Create a mock ensemble with synthetic initial sims.
-    # In a real workflow, use ensemble.initialize_basis_states()
-    # to load from actual simulation restart files.
-    ensemble = WeightedEnsemble(
-        basis_states=BasisStates(
-            basis_state_dir=Path('.'),
-            initial_ensemble_members=config.num_simulations,
-        ),
-        target_states=[TargetState(pcoord=[0.0])],
-        next_sims=[
-            SimMetadata(
-                weight=1.0 / config.num_simulations,
-                simulation_id=idx,
-                iteration_id=1,
-                parent_restart_file=Path(f'restart/1/{idx}'),
-                parent_pcoord=[0.0],
-            )
-            for idx in range(config.num_simulations)
-        ],
-    )
+    # Use a temp dir for both basis states and restart files so the
+    # example is self-contained and runs from any working directory.
+    # `wait_for_file` would otherwise burn ~4 minutes of retry backoff
+    # on missing parent_restart_files.
+    with tempfile.TemporaryDirectory(prefix='minimal-westpa-') as tmp:
+        restart_dir = Path(tmp)
 
-    async with await Manager.from_exchange_factory(
-        factory=create_exchange_factory(args.exchange),
-        executors=ThreadPoolExecutor(),
-    ) as manager:
-        await run_westpa_workflow(
-            manager=manager,
-            sim_agent_type=MockSimAgent,
-            westpa_agent_type=MockWestpaAgent,
-            max_iterations=config.max_iterations,
-            ensemble=ensemble,
+        # Seed the initial parent_restart_files on disk.
+        initial_sims: list[SimMetadata] = []
+        for idx in range(config.num_simulations):
+            seed = restart_dir / f'initial_{idx}.rst'
+            seed.touch()
+            initial_sims.append(
+                SimMetadata(
+                    weight=1.0 / config.num_simulations,
+                    simulation_id=idx,
+                    iteration_id=1,
+                    parent_restart_file=seed,
+                    parent_pcoord=[0.0],
+                ),
+            )
+
+        # Create a mock ensemble with synthetic initial sims.
+        # In a real workflow, use ensemble.initialize_basis_states()
+        # to load from actual simulation restart files.
+        ensemble = WeightedEnsemble(
+            basis_states=BasisStates(
+                basis_state_dir=restart_dir,
+                initial_ensemble_members=config.num_simulations,
+            ),
+            target_states=[TargetState(pcoord=[0.0])],
+            next_sims=initial_sims,
         )
+
+        async with await Manager.from_exchange_factory(
+            factory=create_exchange_factory(args.exchange),
+            executors=ThreadPoolExecutor(),
+            log_config=recommended_logging('INFO'),
+        ) as manager:
+            await run_westpa_workflow(
+                manager=manager,
+                sim_agent_type=MockSimAgent,
+                westpa_agent_type=MockWestpaAgent,
+                max_iterations=config.max_iterations,
+                ensemble=ensemble,
+                sim_agent_kwargs={'restart_dir': restart_dir},
+            )
 
 
 if __name__ == '__main__':

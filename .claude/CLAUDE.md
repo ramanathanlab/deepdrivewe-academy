@@ -9,6 +9,17 @@ DeepDriveWE-Academy is a Python implementation of [DeepDriveWE](https://pubs.acs
 ## Commands
 
 ### Development Setup
+
+The project supports both [uv](https://docs.astral.sh/uv/) and pip;
+`uv.lock` is committed for reproducible installs.
+
+With uv (recommended):
+```bash
+uv sync --extra dev --extra docs
+uv run pre-commit install
+```
+
+With pip:
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -17,12 +28,17 @@ pip install -e '.[dev,docs]'
 pre-commit install
 ```
 
+Refresh the lock file when `pyproject.toml` dependencies change:
+```bash
+uv lock
+```
+
 Full setup with MD simulation dependencies:
 ```bash
 conda create -n deepdrivewe python=3.10 -y
 conda install omnia::ambertools -y
 conda install conda-forge::openmm==7.7 -y
-pip install -e '.[dev,docs]'
+pip install -e '.[dev,docs]'   # or: uv pip install -e '.[dev,docs]'
 ```
 
 ### Testing & Linting
@@ -47,6 +63,9 @@ mypy deepdrivewe/               # type check
 ```
 
 ### Docs
+
+Documentation is built with [properdocs](https://properdocs.readthedocs.io/) (MkDocs-based). Configuration lives in `properdocs.yml` at the repo root (not `mkdocs.yml`). Doc sources are in `docs/` and links between doc pages must point to other files within `docs/` — use absolute GitHub URLs for files outside `docs/` (e.g. example READMEs).
+
 ```bash
 properdocs build --strict
 ```
@@ -82,6 +101,26 @@ Key domain dependencies: `mdtraj`, `MDAnalysis` (trajectory analysis), `parsl` (
 - **PRs target**: `develop`; release PRs go `develop` → `main`
 - **Branch naming**: `feature/<issue>-<slug>`, `bugfix/<issue>-<slug>`, `chore/<issue>-<slug>`
 - A PreToolUse hook redirects `git checkout main` to `develop`
+
+### Merge strategy (critical for releases)
+
+`release-please` only reads `main` and generates the changelog from the
+Conventional Commit **subjects** reachable there since the last tag. The
+merge strategy at each hop is therefore load-bearing:
+
+- **feature/bugfix → `develop`: squash merge.** Each PR collapses to one
+  commit whose subject is the PR title, giving one clean changelog line per
+  PR. This requires the **PR title to be a Conventional Commit** (`feat: …`,
+  `fix: …`) — with a squash merge the PR title is the *only* text
+  release-please ever sees. A non-conventional title (e.g. `Feature/34 tests`)
+  makes the change invisible to the changelog. The [PR Title workflow](../.github/workflows/pr-title.yml)
+  enforces this on every PR to `develop`.
+- **`develop` → `main`: merge commit (`--no-ff`), NEVER squash.** A merge
+  commit preserves develop's individual conventional commits on `main` so
+  release-please can parse them. Squashing this hop collapses every PR into a
+  single non-releasable `release:` subject, so no release PR is opened. If you
+  promote via a GitHub PR, choose **"Create a merge commit"**, not "Squash and
+  merge".
 
 ## Releases
 

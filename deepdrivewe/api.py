@@ -15,7 +15,7 @@ from typing import Protocol
 from typing import TypeVar
 
 import numpy as np
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel as _BaseModel
 from pydantic import Field
 from pydantic import field_validator
@@ -318,12 +318,12 @@ class BasisStates(BaseModel):
     @field_validator('basis_state_dir')
     @classmethod
     def validate_basis_state_dir(cls, value: Path) -> Path:
-        """Validate and resolve the basis state directory."""
+        """Check that the basis state directory exists and is a directory."""
         if not value.is_dir():
             raise NotADirectoryError(
                 f'The basis state directory {value} is not a directory.',
             )
-        return value.resolve()
+        return value
 
     @property
     def unique_basis_states(self) -> list[SimMetadata]:
@@ -339,7 +339,11 @@ class BasisStates(BaseModel):
         """Return the basis state at the specified index."""
         return self.basis_states[idx]
 
-    def __iter__(self) -> Iterator[SimMetadata]:
+    # Intentionally override pydantic's field-iterating ``__iter__`` to
+    # give ``BasisStates`` sequence semantics over its basis states
+    # (paired with ``__len__``/``__getitem__``). The narrower return type
+    # is a deliberate LSP deviation, not a bug.
+    def __iter__(self) -> Iterator[SimMetadata]:  # type: ignore[override]
         """Return an iterator over the basis states."""
         return iter(self.basis_states)
 

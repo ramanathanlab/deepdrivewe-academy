@@ -1,0 +1,98 @@
+# OpenMM NTL9 Huber-Kim Multisite Configuration
+#
+# Three-site architecture:
+#   1. Orchestrator (this process) — runs locally, coordinates the
+#      workflow, and writes params.yaml + runtime.log.
+#   2. Simulation endpoint — GPU workers that run OpenMMSimAgents.
+#   3. Inference endpoint — CPU workers that run the WESTPA/Huber-Kim
+#      resampling agent (HuberKimWestpaAgent).
+#
+# Communication between sites uses the Academy Exchange Cloud
+# (--exchange globus) or an in-process exchange (--exchange local
+# for single-host smoke tests).
+#
+# PATHS
+# - output_dir (orchestrator): where params.yaml and runtime.log
+#   are written. Also passed to each agent; on the sim/inference
+#   endpoints the agent chdirs to its base_dir first so relative
+#   output_dir values resolve on that host.
+# - simulation_config.base_dir / inference_config.base_dir: absolute
+#   path to this example directory on each endpoint host. Each agent
+#   chdirs here on startup so relative paths (reference_file,
+#   checkpoints, etc.) resolve correctly.
+# - basis_state_dir and reference_file must be readable on all three
+#   hosts at the same resolved path (e.g. pre-stage this example
+#   directory on each host, or use absolute paths that exist
+#   everywhere).
+
+# --- Orchestrator-side -----------------------------------------------
+
+# Where params.yaml and runtime.log are written (orchestrator host).
+# Also passed to simulation and inference agents as their output_dir;
+# each agent resolves it relative to its own base_dir after chdir.
+output_dir: results/
+
+# Number of WE iterations.
+num_iterations: 3
+
+# Basis states — read on the orchestrator at init time to seed
+# progress coordinates, AND opened on the sim host as iter-0 restart
+# files. Pre-stage the inputs/ directory so it resolves on all hosts.
+basis_states:
+  basis_state_dir: inputs/
+  basis_state_ext: .pdb
+  initial_ensemble_members: 4
+
+# Initial pcoord computation (runs on the orchestrator).
+basis_state_initializer:
+  reference_file: common_files/reference.pdb
+  mda_selection: protein and name CA
+
+# Target state: folded structure (RMSD < 1.0 A).
+target_states:
+  - label: folded
+    pcoord: [1.0]
+
+# Huber-Kim resampling parameters (inference endpoint).
+# base_dir: absolute path to this example directory on the inference
+# host. The WESTPA agent chdirs here on startup so relative paths
+# (output_dir, checkpoints, etc.) resolve correctly.
+# Set to null (or omit) for local / single-site runs.
+inference_config:
+  base_dir: /rbstor/abrace/projects/ddwe/src/deepdrivewe-academy/examples/openmm_ntl9_hk_multisite
+  sims_per_bin: 4
+
+# --- Simulation endpoint ----------------------------------------------
+
+# OpenMM configuration (simulation endpoint).
+# base_dir: absolute path to this example directory on the simulation
+# host. The sim agent chdirs here on startup so relative paths
+# (reference_file, top_file, output_dir) resolve correctly — the
+# Globus Compute worker's cwd is NOT the example directory.
+simulation_config:
+  base_dir: /nfs/ml_lab/projects/ml_lab/abrace/projects/ddwe/src/deepdrivewe-academy/examples/openmm_ntl9_hk_multisite
+  openmm_config:
+    simulation_length_ns: 0.01
+    report_interval_ps: 2.0
+    dt_ps: 0.002
+    temperature_kelvin: 300.0
+    solvent_type: implicit
+  reference_file: common_files/reference.pdb
+
+# --- Remote compute --------------------------------------------------
+
+# Pre-configured Globus Compute endpoints. Replace each UUID with
+# the one printed by `globus-compute-endpoint start <name>`.
+# - simulation_endpoint_id (required): GPU endpoint for
+#   OpenMMSimAgents.
+# - inference_endpoint_id (optional): CPU endpoint for the
+#   HuberKimWestpaAgent. If omitted (or null), the agent runs
+#   locally on the orchestrator via a ThreadPoolExecutor (in this
+#   case, make sure to update the base_dir for the inference_config
+#   to point to the example directory on the orchestrator host).
+# Both endpoints may live on the same physical host (recommended,
+# so checkpoint/output paths share a filesystem), or on different
+# hosts that share the output_dir filesystem.
+globus_compute:
+  simulation_endpoint_id: a1dfe336-e69d-4d15-a41f-4553fbd9aa05
+  inference_endpoint_id: b30e78ad-6c0c-4f49-9aff-c0ca13cfd720

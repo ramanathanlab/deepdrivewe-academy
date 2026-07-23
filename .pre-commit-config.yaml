@@ -1,13 +1,20 @@
 ci:
   autofix_prs: false
+  # pre-commit.ci opens a weekly PR that runs `pre-commit autoupdate`,
+  # bumping hook revisions in this file. PRs target `develop` to match
+  # the project's integration branch (see CLAUDE.md).
+  autoupdate_branch: develop
+  autoupdate_schedule: weekly
+  autoupdate_commit_msg: 'chore: pre-commit autoupdate'
 repos:
   - repo: 'https://github.com/pre-commit/pre-commit-hooks'
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: mixed-line-ending
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-added-large-files
+        exclude: ^uv\.lock$
       - id: check-docstring-first
       - id: check-json
       - id: check-yaml
@@ -16,18 +23,18 @@ repos:
       - id: name-tests-test
         args: ['--pytest-test-first']
   - repo: 'https://github.com/codespell-project/codespell'
-    rev: v2.2.6
+    rev: v2.4.3
     hooks:
       - id: codespell
-  - repo: 'https://github.com/charliermarsh/ruff-pre-commit'
-    rev: v0.1.14
+  - repo: 'https://github.com/astral-sh/ruff-pre-commit'
+    rev: v0.15.22
     hooks:
       - id: ruff
         args:
           - '--fix'
       - id: ruff-format
   - repo: 'https://github.com/pre-commit/mirrors-mypy'
-    rev: v1.20.1
+    rev: v2.3.0
     hooks:
       - id: mypy
-        additional_dependencies: []
+        additional_dependencies: ['academy-py>=0.5.0']
