@@ -6,6 +6,7 @@ from abc import ABC
 from abc import abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
+from typing import ClassVar
 from typing import Literal
 
 from parsl.config import Config
@@ -21,6 +22,24 @@ class BaseComputeConfig(BaseModel, ABC):
 
     # Name of the platform to uniquely identify it
     name: Literal[''] = ''
+
+    @property
+    @abstractmethod
+    def num_workers(self) -> int:
+        """Return the number of concurrent worker slots.
+
+        This is the number of simulations that can run in parallel
+        (one worker per accelerator on GPU platforms). The base
+        WESTPA workflow launches one simulation agent per worker so
+        that agents are reused across walkers rather than queued
+        indefinitely when the walker count exceeds the slot capacity.
+
+        Returns
+        -------
+        int
+            Number of concurrent worker slots.
+        """
+        ...
 
     @abstractmethod
     def get_parsl_config(self, run_dir: str | Path) -> Config:
@@ -60,6 +79,11 @@ class LocalConfig(BaseComputeConfig):
         default='cpu_htex',
         description='Label for the executor.',
     )
+
+    @property
+    def num_workers(self) -> int:
+        """Return the number of concurrent worker slots."""
+        return self.max_workers_per_node
 
     def get_parsl_config(self, run_dir: str | Path) -> Config:
         """Generate a Parsl configuration for local execution."""
@@ -105,6 +129,13 @@ class WorkstationConfig(BaseComputeConfig):
         description='Label for the executor.',
     )
 
+    @property
+    def num_workers(self) -> int:
+        """Return the number of concurrent worker slots (one per GPU)."""
+        if isinstance(self.available_accelerators, int):
+            return self.available_accelerators
+        return len(self.available_accelerators)
+
     def get_parsl_config(self, run_dir: str | Path) -> Config:
         """Generate a Parsl configuration for workstation execution."""
         return Config(
@@ -143,6 +174,11 @@ class VistaConfig(BaseComputeConfig):
         description='The maximum idle time allowed for an executor before '
         'strategy could shut down unused blocks. Default is 10 minutes.',
     )
+
+    @property
+    def num_workers(self) -> int:
+        """Return the number of concurrent worker slots (1 GH per node)."""
+        return self.num_nodes
 
     def get_parsl_config(self, run_dir: str | Path) -> Config:
         """Generate a Parsl configuration."""
@@ -193,6 +229,14 @@ class PolarisConfig(BaseComputeConfig):
         'strategy could shut down unused blocks. Default is 10 minutes.',
     )
 
+    # Polaris has 4 GPUs per node.
+    gpus_per_node: ClassVar[int] = 4
+
+    @property
+    def num_workers(self) -> int:
+        """Return the number of concurrent worker slots (4 GPUs/node)."""
+        return self.gpus_per_node * self.num_nodes
+
     def get_parsl_config(self, run_dir: str | Path) -> Config:
         """Generate a Parsl configuration."""
         return Config(
@@ -203,7 +247,7 @@ class PolarisConfig(BaseComputeConfig):
                 HighThroughputExecutor(
                     label='htex',
                     cpu_affinity='block-reverse',
-                    available_accelerators=4,
+                    available_accelerators=self.gpus_per_node,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
                             prepend='mpiexec'

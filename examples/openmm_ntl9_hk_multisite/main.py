@@ -157,6 +157,10 @@ async def main() -> None:
                 westpa_agent_type=HuberKimWestpaAgent,
                 max_iterations=cfg.num_iterations,
                 ensemble=ensemble,
+                # One agent per initial walker. The simulation endpoint
+                # must have at least this many workers (accelerators)
+                # available or agents will queue and the run will hang.
+                num_sim_agents=len(ensemble.next_sims),
                 checkpointer=None,
                 sim_agent_kwargs={
                     'sim_config': cfg.simulation_config,

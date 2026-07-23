@@ -219,6 +219,9 @@ async def main() -> None:
                 westpa_agent_type=MockWestpaAgent,
                 max_iterations=config.max_iterations,
                 ensemble=ensemble,
+                # ThreadPoolExecutor has ample slots, so one agent per
+                # walker is safe here.
+                num_sim_agents=config.num_simulations,
                 sim_agent_kwargs={'restart_dir': restart_dir},
             )
 
