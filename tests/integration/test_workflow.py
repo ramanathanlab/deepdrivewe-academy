@@ -201,6 +201,7 @@ class TestRunWestpaWorkflow:
                     westpa_agent_type=_MockWestpaAgent,
                     max_iterations=2,
                     ensemble=ensemble,
+                    num_sim_agents=2,
                     sim_agent_kwargs={'restart_dir': tmp_path},
                 ),
                 timeout=30.0,
@@ -235,9 +236,32 @@ class TestRunWestpaWorkflow:
                     westpa_agent_type=_MockWestpaAgent,
                     max_iterations=1,
                     ensemble=ensemble,
+                    num_sim_agents=2,
                     sim_agent_kwargs={'restart_dir': tmp_path},
                 ),
                 timeout=30.0,
             )
         assert ensemble.iteration == 1
         assert len(ensemble.cur_sims) == 2
+
+    @pytest.mark.parametrize('num_sim_agents', (0, -1))
+    async def test_rejects_non_positive_num_sim_agents(
+        self,
+        tmp_path: Path,
+        num_sim_agents: int,
+    ) -> None:
+        ensemble = _build_ensemble(tmp_path, num_sims=2)
+        async with await Manager.from_exchange_factory(
+            factory=LocalExchangeFactory(),
+            executors=ThreadPoolExecutor(),
+        ) as manager:
+            with pytest.raises(ValueError, match='num_sim_agents must be'):
+                await run_westpa_workflow(
+                    manager=manager,
+                    sim_agent_type=_MockSimAgent,
+                    westpa_agent_type=_MockWestpaAgent,
+                    max_iterations=1,
+                    ensemble=ensemble,
+                    num_sim_agents=num_sim_agents,
+                    sim_agent_kwargs={'restart_dir': tmp_path},
+                )

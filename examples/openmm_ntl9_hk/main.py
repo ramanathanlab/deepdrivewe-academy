@@ -143,6 +143,10 @@ async def main() -> None:
                 },
                 sim_executor='gpu',
                 westpa_executor='cpu',
+                # One simulation agent per accelerator so agents are
+                # reused across walkers rather than queued indefinitely
+                # when the walker count exceeds the slot capacity.
+                num_sim_agents=cfg.compute_config.num_workers,
             )
     finally:
         gpu_executor.shutdown(wait=False)
