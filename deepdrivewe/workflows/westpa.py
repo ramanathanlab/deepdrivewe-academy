@@ -32,6 +32,7 @@ Example
         westpa_agent_type=MyWestpaAgent,
         max_iterations=100,
         ensemble=ensemble,
+        num_sim_agents=num_gpus,
         sim_agent_kwargs={'model': my_model},
         westpa_agent_kwargs={'basis': my_basis},
     )
@@ -357,12 +358,12 @@ async def run_westpa_workflow(  # noqa: PLR0913
     westpa_agent_type: type[WestpaAgent],
     max_iterations: int,
     ensemble: WeightedEnsemble,
+    num_sim_agents: int,
     checkpointer: EnsembleCheckpointer | None = None,
     sim_agent_kwargs: dict[str, Any] | None = None,
     westpa_agent_kwargs: dict[str, Any] | None = None,
     sim_executor: str | None = None,
     westpa_executor: str | None = None,
-    num_sim_agents: int | None = None,
 ) -> None:
     """Run a WESTPA workflow with user-defined agent types.
 
@@ -402,24 +403,34 @@ async def run_westpa_workflow(  # noqa: PLR0913
         Named executor for simulation agents (e.g., GPU).
     westpa_executor : str, optional
         Named executor for the WESTPA agent (e.g., CPU).
-    num_sim_agents : int, optional
-        Number of simulation agents to launch. Must not exceed
-        the number of available executor slots (e.g., GPUs).
-        Defaults to ``len(ensemble.next_sims)``, which is
-        correct only when slots >= walkers. When slots <
-        walkers (e.g., 4 GPUs, 72 walkers), set this to the
-        slot count so agents are reused across simulations
-        rather than queued indefinitely.
+    num_sim_agents : int
+        Number of simulation agents to launch. Must not exceed the
+        number of available executor slots (e.g., GPUs); set it to
+        the slot count so agents are reused across simulations
+        (round-robin) rather than queued indefinitely. Launching one
+        agent per walker deadlocks whenever walkers exceed slots
+        (e.g., 4 GPUs, 72 walkers), so this is required rather than
+        defaulted.
+
+    Raises
+    ------
+    ValueError
+        If ``num_sim_agents`` is less than 1.
     """
+    if num_sim_agents < 1:
+        raise ValueError(
+            f'num_sim_agents must be >= 1, got {num_sim_agents}.',
+        )
+
     initial_sims = ensemble.next_sims
-    num_agents = (
-        num_sim_agents if num_sim_agents is not None else len(initial_sims)
-    )
 
     # Register agents with the manager
     reg_westpa = await manager.register_agent(westpa_agent_type)
     reg_sims = await asyncio.gather(
-        *[manager.register_agent(sim_agent_type) for _ in range(num_agents)],
+        *[
+            manager.register_agent(sim_agent_type)
+            for _ in range(num_sim_agents)
+        ],
     )
 
     # Get handles for inter-agent communication
