@@ -142,6 +142,16 @@ class ExperimentSettings(BaseModel):
     compute_config: ComputeConfigTypes = Field(
         description='Compute configuration for running simulations.',
     )
+    num_sim_agents: int | None = Field(
+        default=None,
+        description=(
+            'Number of simulation agents to launch. '
+            'Set to the number of available GPU slots to avoid a '
+            'deadlock when the number of walkers exceeds slot capacity. '
+            'Defaults to one agent per walker (safe only when '
+            'slots >= walkers).'
+        ),
+    )
 
     @field_validator('output_dir')
     @classmethod
