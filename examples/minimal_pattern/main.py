@@ -25,7 +25,6 @@ from academy.agent import action
 from academy.agent import Agent
 from academy.agent import loop
 from academy.exchange import ExchangeFactory
-from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.handle import Handle
 from academy.logging.recommended import recommended_logging
@@ -35,6 +34,7 @@ from pydantic import Field
 
 from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
+from deepdrivewe.exchange import RetryingHttpExchangeFactory
 
 
 class SimulationAgent(Agent):
@@ -316,10 +316,11 @@ def create_exchange_factory(
     # submitting a batch job script. This will cache a Globus auth session
     # token on the machine that will be reused.
 
-    # Use the HttpExchangeFactory to connect to the Academy Exchange Cloud.
-    # This makes all agents talk to each other through the cloud, which
-    # allows them to run on different machines with easier setup.
-    return HttpExchangeFactory(auth_method='globus')
+    # Connect to the Academy Exchange Cloud so all agents talk to each
+    # other through the cloud, allowing them to run on different machines
+    # with easier setup. RetryingHttpExchangeFactory adds transparent
+    # retries for transient exchange faults (timeouts, 429/5xx).
+    return RetryingHttpExchangeFactory(auth_method='globus')
 
 
 class DeepDriveWeConfig(BaseModel):

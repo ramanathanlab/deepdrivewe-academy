@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Any
 
 from academy.exchange import ExchangeFactory
-from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.logging.recommended import recommended_logging
 from academy.manager import Manager
@@ -39,6 +38,7 @@ from workflow import OpenMMSimAgent
 
 from deepdrivewe.api import WeightedEnsemble
 from deepdrivewe.checkpoint import EnsembleCheckpointer
+from deepdrivewe.exchange import RetryingHttpExchangeFactory
 from deepdrivewe.workflows.westpa import run_westpa_workflow
 
 
@@ -48,7 +48,7 @@ def create_exchange_factory(
     """Create the exchange factory."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(auth_method='globus')
+    return RetryingHttpExchangeFactory(auth_method='globus')
 
 
 def parse_args() -> argparse.Namespace:

@@ -30,7 +30,6 @@ from typing import Any
 
 import numpy as np
 from academy.exchange import ExchangeFactory
-from academy.exchange.cloud.client import HttpExchangeFactory
 from academy.exchange.local import LocalExchangeFactory
 from academy.handle import Handle
 from academy.logging.recommended import recommended_logging
@@ -44,6 +43,7 @@ from deepdrivewe.api import SimMetadata
 from deepdrivewe.api import SimResult
 from deepdrivewe.api import TargetState
 from deepdrivewe.api import WeightedEnsemble
+from deepdrivewe.exchange import RetryingHttpExchangeFactory
 from deepdrivewe.workflows.westpa import run_westpa_workflow
 from deepdrivewe.workflows.westpa import SimulationAgent
 from deepdrivewe.workflows.westpa import WestpaAgent
@@ -152,7 +152,7 @@ def create_exchange_factory(
     """Create the exchange factory based on the type."""
     if exchange_type == 'local':
         return LocalExchangeFactory()
-    return HttpExchangeFactory(auth_method='globus')
+    return RetryingHttpExchangeFactory(auth_method='globus')
 
 
 class WestpaConfig(BaseModel):
